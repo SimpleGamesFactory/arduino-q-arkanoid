@@ -65,6 +65,35 @@ static constexpr int BRICK_Y0 = HUD_H + 10;
 static uint32_t brickmask[BRICK_ROWS];
 
 static uint16_t rowColor[BRICK_ROWS];
+static uint16_t rowColorLight[BRICK_ROWS];
+static uint16_t rowColorDark[BRICK_ROWS];
+
+static inline uint16_t lighten565(uint16_t c) {
+  int r = (c >> 11) & 0x1F;
+  int g = (c >> 5) & 0x3F;
+  int b = c & 0x1F;
+  r = min(31, r + max(1, r / 3));
+  g = min(63, g + max(1, g / 3));
+  b = min(31, b + max(1, b / 3));
+  return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
+static inline uint16_t darken565(uint16_t c) {
+  int r = (c >> 11) & 0x1F;
+  int g = (c >> 5) & 0x3F;
+  int b = c & 0x1F;
+  r = (r * 2) / 3;
+  g = (g * 2) / 3;
+  b = (b * 2) / 3;
+  return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
+static void rebuildBrickShades() {
+  for (int r = 0; r < BRICK_ROWS; r++) {
+    rowColorLight[r] = lighten565(rowColor[r]);
+    rowColorDark[r] = darken565(rowColor[r]);
+  }
+}
 
 static inline bool brickPresent(int c, int r) {
   return (brickmask[r] >> c) & 1u;
@@ -323,8 +352,14 @@ static inline uint16_t bgAt(int x, int y) {
       int col = x / BRICK_W;
 
       if (col >= 0 && col < BRICK_COLS) {
-        if (brickPresent(col, row))
+        if (brickPresent(col, row)) {
+          int localX = x - col * BRICK_W;
+          int localY = yy - row * BRICK_H;
+
+          if (localY == 0 || localX == 0) return rowColorLight[row];
+          if (localY == BRICK_H - 1 || localX == BRICK_W - 1) return rowColorDark[row];
           return rowColor[row];
+        }
       }
     }
   }
@@ -433,6 +468,7 @@ void setup() {
   rowColor[5] = FastILI9341::rgb565(0, 128, 255);
   rowColor[6] = FastILI9341::rgb565(0, 0, 255);
   rowColor[7] = FastILI9341::rgb565(255, 0, 255);
+  rebuildBrickShades();
 
   bool ok = gfx.begin(24000000, MADCTL);
   if (!ok) {
