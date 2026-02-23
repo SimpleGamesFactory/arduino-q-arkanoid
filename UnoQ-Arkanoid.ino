@@ -80,9 +80,15 @@ static void resetBricks() {
 
 // ====== Ball ======
 static constexpr int BALL_R = 6;
-static constexpr int BALL_SPEED_SLOW = 2;
+static constexpr int BALL_SPEED_SLOW = 1;
 static constexpr int BALL_SPEED_FAST = 3;
 static constexpr int BALL_PADDLE_BOUNCE_ZONES = 7;
+static constexpr int BALL_POS_FP_SHIFT = 8;
+static constexpr int BALL_POS_FP_ONE = 1 << BALL_POS_FP_SHIFT;
+static constexpr uint32_t BALL_BASE_STEP_US = 10000;  // referencja: 10 ms / frame
+// Zakres potencjometru A5 (Q8 px/krok): może być szerszy niż BALL_SPEED_* używane do kątów odbić
+static constexpr int32_t POT_BALL_SPEED_MIN_Q = BALL_POS_FP_ONE / 2;      // 0.5
+static constexpr int32_t POT_BALL_SPEED_MAX_Q = BALL_POS_FP_ONE * 5;      // 5.0
 
 struct BallVel {
   int dx;
@@ -104,6 +110,64 @@ static int bdx = BALL_SPEED_SLOW, bdy = -BALL_SPEED_FAST;
 static int br = BALL_R;
 static bool ballAttached = true;
 static bool prevFirePressed = false;
+static int32_t ballFx = 0;
+static int32_t ballFy = 0;
+static int32_t ballSpeedScaleQ = (int32_t)BALL_SPEED_FAST << BALL_POS_FP_SHIFT;  // actual speed in Q8
+static int32_t ballSpeedPotFiltQ = -1;  // filtered analogRead(A5) in Q4
+static uint32_t ballLastStepUs = 0;
+
+static inline void syncBallFixedFromInt() {
+  ballFx = (int32_t)bx << BALL_POS_FP_SHIFT;
+  ballFy = (int32_t)by << BALL_POS_FP_SHIFT;
+}
+
+static inline void resetBallStepTimer() {
+  ballLastStepUs = micros();
+}
+
+static inline int32_t readBallDtQ() {
+  uint32_t nowUs = micros();
+  if (ballLastStepUs == 0) {
+    ballLastStepUs = nowUs;
+    return BALL_POS_FP_ONE;
+  }
+
+  uint32_t dtUs = nowUs - ballLastStepUs;  // wrap-safe for uint32_t
+  ballLastStepUs = nowUs;
+
+  // clamp skoków czasu (np. po dłuższym blit/frame hiccup)
+  if (dtUs < 2000u) dtUs = 2000u;
+  if (dtUs > 30000u) dtUs = 30000u;
+
+  return (int32_t)((dtUs << BALL_POS_FP_SHIFT) / BALL_BASE_STEP_US);  // Q8
+}
+
+static inline void updateBallSpeedFromPot() {
+  int raw = analogRead(A5);  // 0..1023
+  int32_t rawQ = (int32_t)raw << 4;
+
+  if (ballSpeedPotFiltQ < 0) {
+    ballSpeedPotFiltQ = rawQ;
+  } else {
+    // lekkie wygładzenie, żeby potencjometr nie szarpał prędkością
+    ballSpeedPotFiltQ += (rawQ - ballSpeedPotFiltQ) >> 3;
+  }
+
+  int32_t rawSmooth = ballSpeedPotFiltQ >> 4;  // z powrotem 0..1023
+  int32_t minQ = POT_BALL_SPEED_MIN_Q;
+  int32_t rangeQ = POT_BALL_SPEED_MAX_Q - POT_BALL_SPEED_MIN_Q;
+  ballSpeedScaleQ = minQ + (rangeQ * rawSmooth) / 1023;
+}
+
+static inline void stepBallWithPotSpeed(int32_t dtQ) {
+  // skaluje bazowy wektor (bdx/bdy) płynnie w zakresie [SLOW..FAST], zachowując kąt
+  int64_t stepX = (int64_t)bdx * ballSpeedScaleQ * dtQ;
+  int64_t stepY = (int64_t)bdy * ballSpeedScaleQ * dtQ;
+  ballFx += (int32_t)(stepX / ((int64_t)BALL_SPEED_FAST * BALL_POS_FP_ONE));
+  ballFy += (int32_t)(stepY / ((int64_t)BALL_SPEED_FAST * BALL_POS_FP_ONE));
+  bx = (int)((ballFx + (BALL_POS_FP_ONE / 2)) >> BALL_POS_FP_SHIFT);
+  by = (int)((ballFy + (BALL_POS_FP_ONE / 2)) >> BALL_POS_FP_SHIFT);
+}
 
 static inline void setBallVelocity(int dx, int dy) {
   bdx = dx;
@@ -113,6 +177,8 @@ static inline void setBallVelocity(int dx, int dy) {
 static inline void attachBallToPaddle() {
   bx = paddleX + PADDLE_W / 2;
   by = PADDLE_Y - br - 1;
+  syncBallFixedFromInt();
+  resetBallStepTimer();
 }
 
 static inline void resetBallOnPaddle() {
@@ -409,28 +475,35 @@ void loop() {
       launchBall();
     }
   } else {
+    updateBallSpeedFromPot();
+    bool resyncBallPos = false;
+    int32_t ballDtQ = readBallDtQ();
+
     // ruch
-    bx += bdx;
-    by += bdy;
+    stepBallWithPotSpeed(ballDtQ);
 
     // ściany
     if (bx - br < 0) {
       bx = br;
       bdx = -bdx;
+      resyncBallPos = true;
     }
     if (bx + br >= gfx.width()) {
       bx = gfx.width() - br - 1;
       bdx = -bdx;
+      resyncBallPos = true;
     }
     if (by - br < HUD_H) {
       by = HUD_H + br;
       bdy = -bdy;
+      resyncBallPos = true;
     }
 
     // paddle collision
     if (bdy > 0 && by + br >= PADDLE_Y && by + br <= PADDLE_Y + PADDLE_H && bx >= paddleX && bx <= paddleX + PADDLE_W) {
       by = PADDLE_Y - br - 1;
       applyPaddleBounceAngle();
+      resyncBallPos = true;
     }
 
     if (by + br >= gfx.height()) {
@@ -493,6 +566,10 @@ void loop() {
         }
       }
     }
+
+    if (resyncBallPos) {
+      syncBallFixedFromInt();
+    }
   }
 
   bool ballMoved = (bx != oldx) || (by != oldy);
@@ -508,5 +585,5 @@ void loop() {
   flushDirty();
 
   // FPS limit
-  delay(analogRead(A5));
+  delay(10);
 }
