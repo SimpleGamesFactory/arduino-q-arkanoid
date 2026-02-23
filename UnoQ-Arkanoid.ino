@@ -13,7 +13,8 @@
 #define PIN_FIRE D4
 
 static constexpr FastILI9341::ScreenRotation SCREEN_ROTATION =
-    FastILI9341::ScreenRotation::Landscape;
+  FastILI9341::ScreenRotation::Landscape;
+static constexpr uint16_t START_FADE_IN_MS = 220;
 
 FastILI9341 gfx(TFT_CS, TFT_DC, TFT_RST, TFT_LED);
 DirtyRects dirty;
@@ -27,9 +28,13 @@ void game_setup() {
   if (!ok) {
     while (1) delay(1000);
   }
+  analogWriteResolution(12);
   gfx.screenRotation(SCREEN_ROTATION);
+  gfx.setBacklightPwmMax(4095);
+  gfx.setBacklight(0);
 
   arkanoid_setup(PIN_LEFT, PIN_RIGHT, PIN_FIRE);
+  gfx.fadeInBacklight(START_FADE_IN_MS);
 }
 
 void game_physics(float dtSec) {

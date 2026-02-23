@@ -7,6 +7,44 @@ void FastILI9341::setSPIFrequency(uint32_t spi_hz) {
   spi_cfg.frequency = spi_hz;
 }
 
+void FastILI9341::setBacklight(uint8_t level) {
+  backlightLevel_ = level;
+  if (PIN_LED < 0) return;
+
+  uint32_t pwm = ((uint32_t)level * backlightPwmMax_ + 127u) / 255u;
+
+  if (pwm == 0u) {
+    digitalWrite(PIN_LED, LOW);
+    return;
+  }
+  if (pwm >= backlightPwmMax_) {
+    digitalWrite(PIN_LED, HIGH);
+    return;
+  }
+  analogWrite(PIN_LED, (int)pwm);
+}
+
+void FastILI9341::fadeBacklightTo(uint8_t targetLevel, uint32_t durationMs) {
+  uint8_t startLevel = backlightLevel_;
+  if (durationMs == 0 || startLevel == targetLevel) {
+    setBacklight(targetLevel);
+    return;
+  }
+
+  uint32_t t0 = millis();
+  while (true) {
+    uint32_t elapsed = millis() - t0;
+    if (elapsed >= durationMs) break;
+
+    int32_t dv = (int32_t)targetLevel - (int32_t)startLevel;
+    uint8_t cur = (uint8_t)((int32_t)startLevel + (dv * (int32_t)elapsed) / (int32_t)durationMs);
+    setBacklight(cur);
+    delay(1);
+  }
+
+  setBacklight(targetLevel);
+}
+
 bool FastILI9341::begin(uint32_t spi_hz) {
   return begin(spi_hz, (uint8_t)ScreenRotation::Landscape);
 }
@@ -74,7 +112,7 @@ bool FastILI9341::begin(uint32_t spi_hz, uint8_t madctl) {
   if (PIN_RST >= 0) pinMode(PIN_RST, OUTPUT);
   if (PIN_LED >= 0) {
     pinMode(PIN_LED, OUTPUT);
-    digitalWrite(PIN_LED, HIGH);
+    setBacklight(255);
   }
 
   digitalWrite(PIN_CS, HIGH);

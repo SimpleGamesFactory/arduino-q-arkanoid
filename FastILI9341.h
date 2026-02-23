@@ -31,8 +31,13 @@ public:
   void setSPIFrequency(uint32_t spi_hz);
   void screenRotation(uint8_t madctl);
   void screenRotation(ScreenRotation rot) { screenRotation((uint8_t)rot); }
-  void rotateScreen(uint8_t madctl) { screenRotation(madctl); }        // alias
-  void rotateScreen(Rotation rot) { screenRotation((uint8_t)rot); }    // alias
+  void setBacklight(uint8_t level);             // 0..255
+  uint8_t backlight() const { return backlightLevel_; }
+  void setBacklightPwmMax(uint32_t pwmMax) { backlightPwmMax_ = pwmMax ? pwmMax : 255u; }
+  uint32_t backlightPwmMax() const { return backlightPwmMax_; }
+  void fadeBacklightTo(uint8_t targetLevel, uint32_t durationMs);
+  void fadeInBacklight(uint32_t durationMs) { fadeBacklightTo(255, durationMs); }
+  void fadeOutBacklight(uint32_t durationMs) { fadeBacklightTo(0, durationMs); }
 
   int width()  const { return W; }
   int height() const { return H; }
@@ -56,6 +61,8 @@ private:
 
   const struct device* spi_dev = nullptr;
   struct spi_config spi_cfg{};
+  uint8_t backlightLevel_ = 255;
+  uint32_t backlightPwmMax_ = 255;
 
   void hwReset();
   void cmd(uint8_t c);

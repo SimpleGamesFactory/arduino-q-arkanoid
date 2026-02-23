@@ -70,6 +70,10 @@ static uint16_t rowColorLight[BRICK_ROWS];
 static uint16_t rowColorDark[BRICK_ROWS];
 static constexpr int BRICK_FLASH_SLOTS = 40;
 static constexpr uint32_t BRICK_FLASH_TOTAL_US = 50000;  // ~50 ms
+static constexpr uint16_t GAMEOVER_FADE_OUT_MS = 140;
+static constexpr uint16_t GAMEOVER_FADE_IN_MS = 180;
+static constexpr uint16_t GAMEOVER_EXIT_FADE_OUT_MS = 140;
+static constexpr uint16_t GAMEOVER_EXIT_FADE_IN_MS = 180;
 
 static RectFlashAnimSlot brickFlashSlots[BRICK_FLASH_SLOTS];
 static RectFlashAnim brickFlashAnim(
@@ -222,6 +226,9 @@ static void updateHudCache() {
   hudScoreX = gfx.width() - HUD_MARGIN_X - Font5x7::textWidth(hudScoreText, HUD_FONT_SCALE);
 }
 
+static void resetGame();
+static void flushDirty();
+
 static void fillRect565(int x0, int y0, int w, int h, uint16_t color565) {
   if (w <= 0 || h <= 0) return;
 
@@ -273,6 +280,21 @@ static void enterGameOver() {
   gameOver = true;
   gameOverScore = score;
   drawGameOverScreen();
+}
+
+static void enterGameOverWithFade() {
+  gfx.fadeOutBacklight(GAMEOVER_FADE_OUT_MS);
+  enterGameOver();
+  gfx.fadeInBacklight(GAMEOVER_FADE_IN_MS);
+  gamelib_runtime_reset_clock();
+}
+
+static void resetGameFromGameOverWithFade() {
+  gfx.fadeOutBacklight(GAMEOVER_EXIT_FADE_OUT_MS);
+  resetGame();
+  flushDirty();
+  gfx.fadeInBacklight(GAMEOVER_EXIT_FADE_IN_MS);
+  gamelib_runtime_reset_clock();
 }
 
 static void resetGame() {
@@ -498,7 +520,7 @@ void arkanoid_physics(float frameDtSec) {
 
   if (gameOver) {
     if (fireReleaseEdge) {
-      resetGame();
+      resetGameFromGameOverWithFade();
     }
     return;
   }
@@ -547,7 +569,7 @@ void arkanoid_physics(float frameDtSec) {
     if (by + br >= gfx.height()) {
       lives--;
       if (lives <= 0) {
-        enterGameOver();
+        enterGameOverWithFade();
         return;
       } else {
         updateHudCache();
