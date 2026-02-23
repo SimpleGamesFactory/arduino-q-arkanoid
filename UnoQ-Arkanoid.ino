@@ -28,9 +28,13 @@ static uint16_t regionbuf[MAX_RW * MAX_RH];
 static constexpr int PADDLE_W = 60;
 static constexpr int PADDLE_H = 8;
 static constexpr int PADDLE_Y = 220;
+static constexpr int START_LIVES = 3;
+static constexpr uint16_t SCORE_PER_BRICK = 10;
 
 static int paddleX = (320 - PADDLE_W) / 2;
 static int paddleSpeed = 5;
+static int lives = START_LIVES;
+static uint32_t score = 0;
 
 
 
@@ -112,6 +116,16 @@ static inline void applyPaddleBounceAngle() {
   int zone = (hit * BALL_PADDLE_BOUNCE_ZONES) / PADDLE_W;
   zone = constrain(zone, 0, BALL_PADDLE_BOUNCE_ZONES - 1);
   setBallVelocity(kPaddleBounceVel[zone].dx, kPaddleBounceVel[zone].dy);
+}
+
+static void resetGame() {
+  paddleX = (gfx.width() - PADDLE_W) / 2;
+  lives = START_LIVES;
+  score = 0;
+  resetBricks();
+  resetBallOnPaddle();
+  dirty.clear();
+  dirty.add(0, 0, gfx.width() - 1, gfx.height() - 1);
 }
 
 static inline bool insideBall(int x, int y) {
@@ -265,20 +279,12 @@ void setup() {
   rowColor[6] = FastILI9341::rgb565(0, 0, 255);
   rowColor[7] = FastILI9341::rgb565(255, 0, 255);
 
-  resetBricks();
-
   bool ok = gfx.begin(24000000, MADCTL);
   if (!ok) {
     while (1) delay(1000);
   }
 
-  resetBallOnPaddle();
-  fullRedraw();
-  dirty.add(paddleX - 2,
-            PADDLE_Y - 2,
-            paddleX + PADDLE_W + 2,
-            PADDLE_Y + PADDLE_H + 2);
-
+  resetGame();
   flushDirty();
 }
 
@@ -328,9 +334,14 @@ void loop() {
     }
 
     if (by + br >= gfx.height()) {
-      // dodaj rect starej piłki, potem reset na paddle
-      dirty.add(oldx - br - 3, oldy - br - 3, oldx + br + 3, oldy + br + 3);
-      resetBallOnPaddle();
+      lives--;
+      if (lives <= 0) {
+        resetGame();
+      } else {
+        // dodaj rect starej piłki, potem reset na paddle
+        dirty.add(oldx - br - 3, oldy - br - 3, oldx + br + 3, oldy + br + 3);
+        resetBallOnPaddle();
+      }
       fell = true;
     }
 
@@ -360,6 +371,7 @@ void loop() {
             snapAngles();
 
             brickClear(c, r);
+            score += SCORE_PER_BRICK;
 
             if (!bricksRemaining()) {
               resetBricks();
