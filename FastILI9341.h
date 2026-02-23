@@ -8,11 +8,31 @@ extern "C" {
 
 class FastILI9341 {
 public:
+  enum class ScreenRotation : uint8_t {
+    Landscape      = 0xE8,
+    Portrait       = 0x48,
+    LandscapeFlip  = 0x28,
+    PortraitFlip   = 0x88,
+  };
+  using Rotation = ScreenRotation;  // backward-compatible alias
+
+  static constexpr uint8_t MADCTL_MY  = 0x80;
+  static constexpr uint8_t MADCTL_MX  = 0x40;
+  static constexpr uint8_t MADCTL_MV  = 0x20;
+  static constexpr uint8_t MADCTL_ML  = 0x10;
+  static constexpr uint8_t MADCTL_BGR = 0x08;
+  static constexpr uint8_t MADCTL_MH  = 0x04;
+
   // piny: CS/DC/RST/LED (LED może być -1)
   FastILI9341(int cs, int dc, int rst, int led);
 
+  bool begin(uint32_t spi_hz);  // init z domyślną orientacją
   bool begin(uint32_t spi_hz, uint8_t madctl);
   void setSPIFrequency(uint32_t spi_hz);
+  void screenRotation(uint8_t madctl);
+  void screenRotation(ScreenRotation rot) { screenRotation((uint8_t)rot); }
+  void rotateScreen(uint8_t madctl) { screenRotation(madctl); }        // alias
+  void rotateScreen(Rotation rot) { screenRotation((uint8_t)rot); }    // alias
 
   int width()  const { return W; }
   int height() const { return H; }

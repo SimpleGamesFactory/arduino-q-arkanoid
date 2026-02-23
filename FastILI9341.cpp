@@ -7,6 +7,10 @@ void FastILI9341::setSPIFrequency(uint32_t spi_hz) {
   spi_cfg.frequency = spi_hz;
 }
 
+bool FastILI9341::begin(uint32_t spi_hz) {
+  return begin(spi_hz, (uint8_t)ScreenRotation::Landscape);
+}
+
 static inline uint16_t be16(uint16_t v) {
   return (uint16_t)((v << 8) | (v >> 8));
 }
@@ -59,6 +63,11 @@ void FastILI9341::hwReset() {
   delay(120);
 }
 
+void FastILI9341::screenRotation(uint8_t madctl) {
+  cmd(0x36);  // MADCTL
+  data(&madctl, 1);
+}
+
 bool FastILI9341::begin(uint32_t spi_hz, uint8_t madctl) {
   pinMode(PIN_CS, OUTPUT);
   pinMode(PIN_DC, OUTPUT);
@@ -95,11 +104,7 @@ bool FastILI9341::begin(uint32_t spi_hz, uint8_t madctl) {
   }
   delay(10);
 
-  cmd(0x36);  // MADCTL
-  {
-    uint8_t m = madctl;
-    data(&m, 1);
-  }
+  screenRotation(madctl);
   delay(10);
 
   cmd(0x29);

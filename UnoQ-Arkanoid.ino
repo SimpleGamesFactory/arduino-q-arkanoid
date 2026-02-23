@@ -12,9 +12,8 @@
 #define PIN_RIGHT 3
 #define PIN_FIRE D4
 
-// MADCTL: dobierz pod orientację
-// typowe zestawy: 0xE8, 0x48, 0x28, 0x88
-static constexpr uint8_t MADCTL = 0xE8;
+static constexpr FastILI9341::ScreenRotation SCREEN_ROTATION =
+    FastILI9341::ScreenRotation::Landscape;
 
 FastILI9341 gfx(TFT_CS, TFT_DC, TFT_RST, TFT_LED);
 DirtyRects dirty;
@@ -24,10 +23,11 @@ void game_setup() {
   pinMode(PIN_RIGHT, INPUT_PULLUP);
   pinMode(PIN_FIRE, INPUT_PULLUP);
 
-  bool ok = gfx.begin(24000000, MADCTL);
+  bool ok = gfx.begin(24000000);
   if (!ok) {
     while (1) delay(1000);
   }
+  gfx.screenRotation(SCREEN_ROTATION);
 
   arkanoid_setup(PIN_LEFT, PIN_RIGHT, PIN_FIRE);
 }
