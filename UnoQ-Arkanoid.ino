@@ -8,6 +8,7 @@
 
 #define PIN_LEFT 2
 #define PIN_RIGHT 3
+#define PIN_FIRE D4
 
 // MADCTL: dobierz pod orientację
 // typowe zestawy: 0xE8, 0x48, 0x28, 0x88
@@ -59,9 +60,59 @@ static void resetBricks() {
 }
 
 // ====== Ball ======
+static constexpr int BALL_R = 6;
+static constexpr int BALL_SPEED_SLOW = 2;
+static constexpr int BALL_SPEED_FAST = 3;
+static constexpr int BALL_PADDLE_BOUNCE_ZONES = 7;
+
+struct BallVel {
+  int dx;
+  int dy;
+};
+
+static constexpr BallVel kPaddleBounceVel[BALL_PADDLE_BOUNCE_ZONES] = {
+  { -BALL_SPEED_FAST, -BALL_SPEED_SLOW },
+  { -BALL_SPEED_SLOW, -BALL_SPEED_FAST },
+  { -1,               -BALL_SPEED_FAST },
+  {  0,               -BALL_SPEED_FAST },
+  {  1,               -BALL_SPEED_FAST },
+  {  BALL_SPEED_SLOW, -BALL_SPEED_FAST },
+  {  BALL_SPEED_FAST, -BALL_SPEED_SLOW },
+};
+
 static int bx = 60, by = 120;
-static int bdx = 2, bdy = -3;
-static int br = 6;
+static int bdx = BALL_SPEED_SLOW, bdy = -BALL_SPEED_FAST;
+static int br = BALL_R;
+static bool ballAttached = true;
+static bool prevFirePressed = false;
+
+static inline void setBallVelocity(int dx, int dy) {
+  bdx = dx;
+  bdy = dy;
+}
+
+static inline void attachBallToPaddle() {
+  bx = paddleX + PADDLE_W / 2;
+  by = PADDLE_Y - br - 1;
+}
+
+static inline void resetBallOnPaddle() {
+  ballAttached = true;
+  setBallVelocity(BALL_SPEED_SLOW, -BALL_SPEED_FAST);
+  attachBallToPaddle();
+}
+
+static inline void launchBall() {
+  ballAttached = false;
+  setBallVelocity(BALL_SPEED_SLOW, -BALL_SPEED_FAST);
+}
+
+static inline void applyPaddleBounceAngle() {
+  int hit = constrain(bx - paddleX, 0, PADDLE_W - 1);
+  int zone = (hit * BALL_PADDLE_BOUNCE_ZONES) / PADDLE_W;
+  zone = constrain(zone, 0, BALL_PADDLE_BOUNCE_ZONES - 1);
+  setBallVelocity(kPaddleBounceVel[zone].dx, kPaddleBounceVel[zone].dy);
+}
 
 static inline bool insideBall(int x, int y) {
   int dx = x - bx, dy = y - by;
@@ -163,14 +214,14 @@ static void snapAngles() {
   int ax = abs(bdx);
   int ay = abs(bdy);
   if (ax == ay) {
-    ax = 2;
-    ay = 3;
+    ax = BALL_SPEED_SLOW;
+    ay = BALL_SPEED_FAST;
   } else if (ax > ay) {
-    ax = 3;
-    ay = 2;
+    ax = BALL_SPEED_FAST;
+    ay = BALL_SPEED_SLOW;
   } else {
-    ax = 2;
-    ay = 3;
+    ax = BALL_SPEED_SLOW;
+    ay = BALL_SPEED_FAST;
   }
   bdx = sx * ax;
   bdy = sy * ay;
@@ -203,6 +254,7 @@ void updatePaddle() {
 void setup() {
   pinMode(PIN_LEFT, INPUT_PULLUP);
   pinMode(PIN_RIGHT, INPUT_PULLUP);
+  pinMode(PIN_FIRE, INPUT_PULLUP);
 
   rowColor[0] = FastILI9341::rgb565(255, 0, 0);
   rowColor[1] = FastILI9341::rgb565(255, 128, 0);
@@ -220,6 +272,7 @@ void setup() {
     while (1) delay(1000);
   }
 
+  resetBallOnPaddle();
   fullRedraw();
   dirty.add(paddleX - 2,
             PADDLE_Y - 2,
@@ -239,115 +292,100 @@ bool bricksRemaining() {
 void loop() {
   updatePaddle();
   int oldx = bx, oldy = by;
-
-  // ruch
-  bx += bdx;
-  by += bdy;
-
-  // ściany
-  if (bx - br < 0) {
-    bx = br;
-    bdx = -bdx;
-  }
-  if (bx + br >= gfx.width()) {
-    bx = gfx.width() - br - 1;
-    bdx = -bdx;
-  }
-  if (by - br < 0) {
-    by = br;
-    bdy = -bdy;
-  }
-
-  // paddle collision
-  if (bdy > 0 && by + br >= PADDLE_Y && by + br <= PADDLE_Y + PADDLE_H && bx >= paddleX && bx <= paddleX + PADDLE_W) {
-    by = PADDLE_Y - br - 1;
-
-    int hit = bx - paddleX;
-    int zone = (hit * 5) / PADDLE_W;
-
-    switch (zone) {
-      case 0:
-        bdx = -3;
-        bdy = -2;
-        break;
-      case 1:
-        bdx = -2;
-        bdy = -3;
-        break;
-      case 2:
-        bdx = 0;
-        bdy = -3;
-        break;
-      case 3:
-        bdx = 2;
-        bdy = -3;
-        break;
-      case 4:
-        bdx = 3;
-        bdy = -2;
-        break;
-    }
-  }
+  bool firePressed = (digitalRead(PIN_FIRE) == LOW);
+  bool fireEdge = firePressed && !prevFirePressed;
+  prevFirePressed = firePressed;
 
   bool fell = false;
-  if (by + br >= gfx.height()) {
-    // dodaj rect starej piłki, potem reset
-    dirty.add(oldx - br - 3, oldy - br - 3, oldx + br + 3, oldy + br + 3);
-    bx = random(gfx.width());
-    by = 140;
-    bdx = 2 * (random(10) > 5 ? -1 : 1);
-    bdy = -2;
-    fell = true;
-  }
+  if (ballAttached) {
+    attachBallToPaddle();
+    if (fireEdge) {
+      launchBall();
+    }
+  } else {
+    // ruch
+    bx += bdx;
+    by += bdy;
 
-  // kolizje z klockami (lokalne)
-  bool hit = false;
-  int hitc = -1, hitr = -1;
+    // ściany
+    if (bx - br < 0) {
+      bx = br;
+      bdx = -bdx;
+    }
+    if (bx + br >= gfx.width()) {
+      bx = gfx.width() - br - 1;
+      bdx = -bdx;
+    }
+    if (by - br < 0) {
+      by = br;
+      bdy = -bdy;
+    }
 
-  int cx0 = max(0, (bx - br) / BRICK_W);
-  int cx1 = min(BRICK_COLS - 1, (bx + br) / BRICK_W);
-  int ry0 = max(0, (by - br - BRICK_Y0) / BRICK_H);
-  int ry1 = min(BRICK_ROWS - 1, (by + br - BRICK_Y0) / BRICK_H);
+    // paddle collision
+    if (bdy > 0 && by + br >= PADDLE_Y && by + br <= PADDLE_Y + PADDLE_H && bx >= paddleX && bx <= paddleX + PADDLE_W) {
+      by = PADDLE_Y - br - 1;
+      applyPaddleBounceAngle();
+    }
 
-  for (int r = ry0; r <= ry1 && !hit; r++) {
-    for (int c = cx0; c <= cx1; c++) {
-      if (!brickPresent(c, r)) continue;
-      int x0 = c * BRICK_W;
-      int y0 = BRICK_Y0 + r * BRICK_H;
-      int x1 = x0 + BRICK_W - 1;
-      int y1 = y0 + BRICK_H - 1;
-      if (circleRectHit(bx, by, br, x0, y0, x1, y1)) {
-        hit = true;
-        hitc = c;
-        hitr = r;
+    if (by + br >= gfx.height()) {
+      // dodaj rect starej piłki, potem reset na paddle
+      dirty.add(oldx - br - 3, oldy - br - 3, oldx + br + 3, oldy + br + 3);
+      resetBallOnPaddle();
+      fell = true;
+    }
 
-        bool prev_out_y = (oldy < y0 - br) || (oldy > y1 + br);
-        if (prev_out_y) bdy = -bdy;
-        else bdx = -bdx;
+    // kolizje z klockami (lokalne)
+    if (!fell) {
+      bool hit = false;
 
-        snapAngles();
+      int cx0 = max(0, (bx - br) / BRICK_W);
+      int cx1 = min(BRICK_COLS - 1, (bx + br) / BRICK_W);
+      int ry0 = max(0, (by - br - BRICK_Y0) / BRICK_H);
+      int ry1 = min(BRICK_ROWS - 1, (by + br - BRICK_Y0) / BRICK_H);
 
-        brickClear(c, r);
+      for (int r = ry0; r <= ry1 && !hit; r++) {
+        for (int c = cx0; c <= cx1; c++) {
+          if (!brickPresent(c, r)) continue;
+          int x0 = c * BRICK_W;
+          int y0 = BRICK_Y0 + r * BRICK_H;
+          int x1 = x0 + BRICK_W - 1;
+          int y1 = y0 + BRICK_H - 1;
+          if (circleRectHit(bx, by, br, x0, y0, x1, y1)) {
+            hit = true;
 
-        if (!bricksRemaining()) {
-          resetBricks();
+            bool prev_out_y = (oldy < y0 - br) || (oldy > y1 + br);
+            if (prev_out_y) bdy = -bdy;
+            else bdx = -bdx;
 
-          // pełny redraw
-          dirty.clear();
-          dirty.add(0, 0, gfx.width() - 1, gfx.height() - 1);
+            snapAngles();
+
+            brickClear(c, r);
+
+            if (!bricksRemaining()) {
+              resetBricks();
+
+              // pełny redraw
+              dirty.clear();
+              dirty.add(0, 0, gfx.width() - 1, gfx.height() - 1);
+            }
+
+            dirty.add(x0 - 2, y0 - 2, x1 + 2, y1 + 2);
+            break;
+          }
         }
-
-        dirty.add(x0 - 2, y0 - 2, x1 + 2, y1 + 2);
-        break;
       }
     }
   }
 
-  // dirty dla piłki: stara + nowa (jeśli nie było fell, to też)
-  if (!fell) {
+  bool ballMoved = (bx != oldx) || (by != oldy);
+
+  // dirty dla piłki: stara + nowa (tylko gdy pozycja się zmieniła albo był reset po spadnięciu)
+  if (!fell && ballMoved) {
     dirty.add(oldx - br - 3, oldy - br - 3, oldx + br + 3, oldy + br + 3);
   }
-  dirty.add(bx - br - 3, by - br - 3, bx + br + 3, by + br + 3);
+  if (ballMoved || fell) {
+    dirty.add(bx - br - 3, by - br - 3, bx + br + 3, by + br + 3);
+  }
 
   flushDirty();
 
