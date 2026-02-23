@@ -67,6 +67,18 @@ static uint32_t brickmask[BRICK_ROWS];
 static uint16_t rowColor[BRICK_ROWS];
 static uint16_t rowColorLight[BRICK_ROWS];
 static uint16_t rowColorDark[BRICK_ROWS];
+static constexpr int BRICK_FLASH_SLOTS = 8;
+static constexpr uint8_t BRICK_FLASH_FRAMES = 4;
+
+struct BrickFlash {
+  bool active;
+  uint8_t ttl;
+  int x0, y0, x1, y1;
+  uint16_t baseColor;
+  uint16_t lightColor;
+};
+
+static BrickFlash brickFlashes[BRICK_FLASH_SLOTS];
 
 static inline uint16_t lighten565(uint16_t c) {
   int r = (c >> 11) & 0x1F;
@@ -92,6 +104,63 @@ static void rebuildBrickShades() {
   for (int r = 0; r < BRICK_ROWS; r++) {
     rowColorLight[r] = lighten565(rowColor[r]);
     rowColorDark[r] = darken565(rowColor[r]);
+  }
+}
+
+static void clearBrickFlashes() {
+  for (int i = 0; i < BRICK_FLASH_SLOTS; i++) brickFlashes[i].active = false;
+}
+
+static void spawnBrickFlash(int x0, int y0, int x1, int y1, uint16_t baseColor, uint16_t lightColor) {
+  int slot = -1;
+  for (int i = 0; i < BRICK_FLASH_SLOTS; i++) {
+    if (!brickFlashes[i].active) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot < 0) slot = 0;  // fallback: nadpisz najstarszy slot[0]
+
+  brickFlashes[slot].active = true;
+  brickFlashes[slot].ttl = BRICK_FLASH_FRAMES;
+  brickFlashes[slot].x0 = x0;
+  brickFlashes[slot].y0 = y0;
+  brickFlashes[slot].x1 = x1;
+  brickFlashes[slot].y1 = y1;
+  brickFlashes[slot].baseColor = baseColor;
+  brickFlashes[slot].lightColor = lightColor;
+}
+
+static inline uint16_t brickFlashColorAt(int x, int y) {
+  for (int i = 0; i < BRICK_FLASH_SLOTS; i++) {
+    const BrickFlash &f = brickFlashes[i];
+    if (!f.active) continue;
+    if (x < f.x0 || x > f.x1 || y < f.y0 || y > f.y1) continue;
+
+    if (f.ttl >= 4) return FastILI9341::rgb565(255, 255, 255);
+    if (f.ttl == 3) return FastILI9341::rgb565(255, 245, 180);
+    if (f.ttl == 2) return f.lightColor;
+    return f.baseColor;
+  }
+  return 0;
+}
+
+static void markBrickFlashesDirty() {
+  for (int i = 0; i < BRICK_FLASH_SLOTS; i++) {
+    if (!brickFlashes[i].active) continue;
+    dirty.add(brickFlashes[i].x0 - 1, brickFlashes[i].y0 - 1, brickFlashes[i].x1 + 1, brickFlashes[i].y1 + 1);
+  }
+}
+
+static void advanceBrickFlashes() {
+  for (int i = 0; i < BRICK_FLASH_SLOTS; i++) {
+    if (!brickFlashes[i].active) continue;
+    if (brickFlashes[i].ttl > 0) brickFlashes[i].ttl--;
+    if (brickFlashes[i].ttl == 0) {
+      // Po wygaśnięciu trzeba przerysować obszar, inaczej zostaje "duch" flasha.
+      dirty.add(brickFlashes[i].x0 - 1, brickFlashes[i].y0 - 1, brickFlashes[i].x1 + 1, brickFlashes[i].y1 + 1);
+      brickFlashes[i].active = false;
+    }
   }
 }
 
@@ -303,6 +372,7 @@ static void resetGame() {
   gameOverScore = 0;
   updateHudCache();
   resetBricks();
+  clearBrickFlashes();
   resetBallOnPaddle();
   dirty.clear();
   dirty.add(0, 0, gfx.width() - 1, gfx.height() - 1);
@@ -337,6 +407,9 @@ static inline uint16_t bgAt(int x, int y) {
     if (Font5x7::textPixel(hudScoreText, HUD_FONT_SCALE, x - hudScoreX, ly)) return hudScoreColor;
     return black;
   }
+
+  uint16_t flashColor = brickFlashColorAt(x, y);
+  if (flashColor) return flashColor;
 
   // PADDLE
   if (y >= PADDLE_Y && y < PADDLE_Y + PADDLE_H && x >= paddleX && x < paddleX + PADDLE_W) {
@@ -502,6 +575,7 @@ void loop() {
   }
 
   updatePaddle();
+  markBrickFlashesDirty();
   int oldx = bx, oldy = by;
 
   bool fell = false;
@@ -584,6 +658,7 @@ void loop() {
             snapAngles();
 
             brickClear(c, r);
+            spawnBrickFlash(x0, y0, x1, y1, rowColor[r], rowColorLight[r]);
             score += SCORE_PER_BRICK;
             updateHudCache();
             markHudDirty();
@@ -619,6 +694,7 @@ void loop() {
   }
 
   flushDirty();
+  advanceBrickFlashes();
 
   // FPS limit
   delay(10);
