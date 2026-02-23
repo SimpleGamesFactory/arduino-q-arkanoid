@@ -299,11 +299,43 @@ static inline bool circleRectHit(int cx, int cy, int r, int x0, int y0, int x1, 
   return gamelib_circle_rect_hit(cx, cy, r, x0, y0, x1, y1);
 }
 
+static inline bool paddleRoundedBodyAt(int x, int y) {
+  if (y < PADDLE_Y || y >= PADDLE_Y + PADDLE_H || x < paddleX || x >= paddleX + PADDLE_W) return false;
+
+  int lx = x - paddleX;
+  int ly = y - PADDLE_Y;
+
+  // Proste "round rect" dla małej wysokości: ścinamy skrajne piksele rogów.
+  if ((ly == 0 || ly == PADDLE_H - 1) && (lx == 0 || lx == PADDLE_W - 1)) return false;
+  return true;
+}
+
+static inline bool paddleShadowAt(int x, int y) {
+  const int sx = paddleX + 1;
+  const int sy = PADDLE_Y + 1;
+  const int sw = PADDLE_W;
+  const int sh = PADDLE_H;
+  if (y < sy || y >= sy + sh || x < sx || x >= sx + sw) return false;
+
+  int lx = x - sx;
+  int ly = y - sy;
+  if ((ly == 0 || ly == sh - 1) && (lx == 0 || lx == sw - 1)) return false;
+
+  // Nie rysuj cienia tam, gdzie jest właściwa paletka.
+  if (paddleRoundedBodyAt(x, y)) return false;
+  return true;
+}
+
 // ====== Background sampling ======
 static inline uint16_t bgAt(int x, int y) {
   const uint16_t black = FastILI9341::rgb565(0, 0, 0);
   const uint16_t hudLivesColor = FastILI9341::rgb565(255, 255, 255);
   const uint16_t hudScoreColor = FastILI9341::rgb565(255, 220, 120);
+  const uint16_t paddleFace = FastILI9341::rgb565(196, 200, 208);
+  const uint16_t paddleLight = FastILI9341::rgb565(232, 236, 244);
+  const uint16_t paddleDark = FastILI9341::rgb565(130, 136, 146);
+  const uint16_t paddleMidShadow = FastILI9341::rgb565(86, 92, 102);
+  const uint16_t paddleShadow = FastILI9341::rgb565(28, 32, 38);
 
   if (y < HUD_H) {
     int ly = y - HUD_TEXT_Y;
@@ -313,9 +345,18 @@ static inline uint16_t bgAt(int x, int y) {
     return black;
   }
 
-  // PADDLE
-  if (y >= PADDLE_Y && y < PADDLE_Y + PADDLE_H && x >= paddleX && x < paddleX + PADDLE_W) {
-    return FastILI9341::rgb565(255, 255, 255);
+  // PADDLE (lekko szara, zaokrąglone rogi, delikatny cień)
+  if (paddleRoundedBodyAt(x, y)) {
+    int lx = x - paddleX;
+    int ly = y - PADDLE_Y;
+
+    if (ly == 0 || lx == 0) return paddleLight;
+    if (ly == PADDLE_H - 1 || lx == PADDLE_W - 1) return paddleDark;
+    if (ly == PADDLE_H - 2 || lx == PADDLE_W - 2) return paddleMidShadow;
+    return paddleFace;
+  }
+  if (paddleShadowAt(x, y)) {
+    return paddleShadow;
   }
 
   // BRICKS
