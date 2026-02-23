@@ -24,6 +24,17 @@ static constexpr int MAX_RW = 120;
 static constexpr int MAX_RH = 80;
 static uint16_t regionbuf[MAX_RW * MAX_RH];
 
+// ====== HUD ======
+static constexpr int HUD_FONT_SCALE = 1;
+static constexpr int HUD_TEXT_Y = 1;
+static constexpr int HUD_MARGIN_X = 2;
+static constexpr int HUD_H = 10;
+static constexpr int HUD_SCORE_CHARS = 8;
+static constexpr int HUD_LIVES_SLOTS = 3;
+static char hudLivesText[HUD_LIVES_SLOTS + 1] = "***";
+static char hudScoreText[HUD_SCORE_CHARS + 1] = "       0";
+static int hudScoreX = 0;
+
 
 // Paddle
 
@@ -47,7 +58,7 @@ static constexpr int BRICK_W = 20;
 static constexpr int BRICK_H = 12;
 static constexpr int BRICK_COLS = 320 / BRICK_W;  // 16
 static constexpr int BRICK_ROWS = 8;
-static constexpr int BRICK_Y0 = 20;
+static constexpr int BRICK_Y0 = HUD_H + 10;
 
 
 
@@ -122,6 +133,20 @@ static inline void applyPaddleBounceAngle() {
   setBallVelocity(kPaddleBounceVel[zone].dx, kPaddleBounceVel[zone].dy);
 }
 
+static inline void markHudDirty() {
+  dirty.add(0, 0, gfx.width() - 1, HUD_H - 1);
+}
+
+static void updateHudCache() {
+  for (int i = 0; i < HUD_LIVES_SLOTS; i++) {
+    hudLivesText[i] = (i < lives) ? '*' : ' ';
+  }
+  hudLivesText[HUD_LIVES_SLOTS] = '\0';
+
+  snprintf(hudScoreText, sizeof(hudScoreText), "%*lu", HUD_SCORE_CHARS, (unsigned long)score);
+  hudScoreX = gfx.width() - HUD_MARGIN_X - Font5x7::textWidth(hudScoreText, HUD_FONT_SCALE);
+}
+
 static void fillRect565(int x0, int y0, int w, int h, uint16_t color565) {
   if (w <= 0 || h <= 0) return;
 
@@ -160,13 +185,13 @@ static void drawGameOverScreen() {
 
   dirty.clear();
   gfx.fillScreen565(bg);
-  fillRect565(24, 26, gfx.width() - 48, 4, accent);
-  fillRect565(24, gfx.height() - 30, gfx.width() - 48, 4, accent);
+  fillRect565(24, 20, gfx.width() - 48, 4, accent);
+  fillRect565(24, gfx.height() - 20, gfx.width() - 48, 4, accent);
 
-  Font5x7::drawCenteredText(gfx.width(), 52, "GAME OVER", 4, accent, fillRect565);
-  Font5x7::drawCenteredText(gfx.width(), 104, "SCORE", 3, textc, fillRect565);
-  Font5x7::drawCenteredText(gfx.width(), 132, scoreBuf, 6, scorec, fillRect565);
-  Font5x7::drawCenteredText(gfx.width(), 184, "PRESS FIRE", 2, textc, fillRect565);
+  Font5x7::drawCenteredText(gfx.width(), 44, "GAME OVER", 4, accent, fillRect565);
+  Font5x7::drawCenteredText(gfx.width(), 96, "SCORE", 3, textc, fillRect565);
+  Font5x7::drawCenteredText(gfx.width(), 128, scoreBuf, 6, scorec, fillRect565);
+  Font5x7::drawCenteredText(gfx.width(), 190, "PRESS FIRE", 2, textc, fillRect565);
 }
 
 static void enterGameOver() {
@@ -181,6 +206,7 @@ static void resetGame() {
   score = 0;
   gameOver = false;
   gameOverScore = 0;
+  updateHudCache();
   resetBricks();
   resetBallOnPaddle();
   dirty.clear();
@@ -206,6 +232,16 @@ static inline bool circleRectHit(int cx, int cy, int r, int x0, int y0, int x1, 
 // ====== Background sampling ======
 static inline uint16_t bgAt(int x, int y) {
   const uint16_t black = FastILI9341::rgb565(0, 0, 0);
+  const uint16_t hudLivesColor = FastILI9341::rgb565(255, 255, 255);
+  const uint16_t hudScoreColor = FastILI9341::rgb565(255, 220, 120);
+
+  if (y < HUD_H) {
+    int ly = y - HUD_TEXT_Y;
+    int lx = x - HUD_MARGIN_X;
+    if (Font5x7::textPixel(hudLivesText, HUD_FONT_SCALE, lx, ly)) return hudLivesColor;
+    if (Font5x7::textPixel(hudScoreText, HUD_FONT_SCALE, x - hudScoreX, ly)) return hudScoreColor;
+    return black;
+  }
 
   // PADDLE
   if (y >= PADDLE_Y && y < PADDLE_Y + PADDLE_H && x >= paddleX && x < paddleX + PADDLE_W) {
@@ -386,8 +422,8 @@ void loop() {
       bx = gfx.width() - br - 1;
       bdx = -bdx;
     }
-    if (by - br < 0) {
-      by = br;
+    if (by - br < HUD_H) {
+      by = HUD_H + br;
       bdy = -bdy;
     }
 
@@ -404,6 +440,8 @@ void loop() {
         delay(10);
         return;
       } else {
+        updateHudCache();
+        markHudDirty();
         // dodaj rect starej piłki, potem reset na paddle
         dirty.add(oldx - br - 3, oldy - br - 3, oldx + br + 3, oldy + br + 3);
         resetBallOnPaddle();
@@ -438,6 +476,8 @@ void loop() {
 
             brickClear(c, r);
             score += SCORE_PER_BRICK;
+            updateHudCache();
+            markHudDirty();
 
             if (!bricksRemaining()) {
               resetBricks();

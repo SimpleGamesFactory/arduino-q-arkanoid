@@ -4,6 +4,7 @@ namespace Font5x7 {
 
 static const uint8_t* glyph(char ch) {
   static const uint8_t GLYPH_SPACE[7] = {0,0,0,0,0,0,0};
+  static const uint8_t GLYPH_BALL[7]  = {0x00,0x0E,0x1F,0x1F,0x1F,0x0E,0x00};
   static const uint8_t GLYPH_0[7] = {0x0E,0x11,0x13,0x15,0x19,0x11,0x0E};
   static const uint8_t GLYPH_1[7] = {0x04,0x0C,0x04,0x04,0x04,0x04,0x0E};
   static const uint8_t GLYPH_2[7] = {0x0E,0x11,0x01,0x02,0x04,0x08,0x1F};
@@ -79,6 +80,7 @@ static const uint8_t* glyph(char ch) {
     case 'Y': return GLYPH_Y;
     case 'Z': return GLYPH_Z;
     case ' ': return GLYPH_SPACE;
+    case '*': return GLYPH_BALL;
     default:  return GLYPH_SPACE;
   }
 }
@@ -88,6 +90,27 @@ int textWidth(const char* s, int scale) {
   for (const char* p = s; *p; ++p) n++;
   if (n == 0) return 0;
   return n * (5 * scale + scale) - scale;
+}
+
+bool textPixel(const char* s, int scale, int x, int y) {
+  if (!s || scale <= 0 || x < 0 || y < 0) return false;
+
+  const int charW = 5 * scale;
+  const int advance = charW + scale;
+  const int row = y / scale;
+  if (row < 0 || row >= 7) return false;
+
+  const int charIndex = x / advance;
+  const int localX = x % advance;
+  if (localX >= charW) return false;  // inter-char gap
+
+  const char* p = s;
+  for (int i = 0; i < charIndex && *p; i++) ++p;
+  if (*p == '\0') return false;
+
+  const int col = localX / scale;
+  const uint8_t bits = glyph(*p)[row];
+  return (bits & (1u << (4 - col))) != 0;
 }
 
 void drawText(int x, int y, const char* s, int scale, uint16_t color565, FillRectFn fillRect) {
