@@ -46,6 +46,9 @@ static constexpr uint16_t SCORE_PER_BRICK = 10;
 
 static int paddleX = (320 - PADDLE_W) / 2;
 static int paddleSpeed = 5;
+static constexpr uint32_t PADDLE_BASE_STEP_US = 10000;  // referencja starego delay(10)
+static float paddleXf = (float)((320 - PADDLE_W) / 2);
+static uint32_t frameLastUs = 0;
 static int lives = START_LIVES;
 static uint32_t score = 0;
 static bool gameOver = false;
@@ -67,12 +70,13 @@ static uint32_t brickmask[BRICK_ROWS];
 static uint16_t rowColor[BRICK_ROWS];
 static uint16_t rowColorLight[BRICK_ROWS];
 static uint16_t rowColorDark[BRICK_ROWS];
-static constexpr int BRICK_FLASH_SLOTS = 8;
-static constexpr uint8_t BRICK_FLASH_FRAMES = 4;
+static constexpr int BRICK_FLASH_SLOTS = 40;
+static constexpr uint32_t BRICK_FLASH_TOTAL_US = 50000;  // ~50 ms
 
 struct BrickFlash {
   bool active;
-  uint8_t ttl;
+  uint32_t remUs;
+  uint32_t totalUs;
   int x0, y0, x1, y1;
   uint16_t baseColor;
   uint16_t lightColor;
@@ -111,7 +115,7 @@ static void clearBrickFlashes() {
   for (int i = 0; i < BRICK_FLASH_SLOTS; i++) brickFlashes[i].active = false;
 }
 
-static void spawnBrickFlash(int x0, int y0, int x1, int y1, uint16_t baseColor, uint16_t lightColor) {
+static void spawnBrickFlashWithDurationUs(int x0, int y0, int x1, int y1, uint32_t durationUs, uint16_t baseColor, uint16_t lightColor) {
   int slot = -1;
   for (int i = 0; i < BRICK_FLASH_SLOTS; i++) {
     if (!brickFlashes[i].active) {
@@ -122,7 +126,8 @@ static void spawnBrickFlash(int x0, int y0, int x1, int y1, uint16_t baseColor, 
   if (slot < 0) slot = 0;  // fallback: nadpisz najstarszy slot[0]
 
   brickFlashes[slot].active = true;
-  brickFlashes[slot].ttl = BRICK_FLASH_FRAMES;
+  brickFlashes[slot].remUs = durationUs;
+  brickFlashes[slot].totalUs = durationUs;
   brickFlashes[slot].x0 = x0;
   brickFlashes[slot].y0 = y0;
   brickFlashes[slot].x1 = x1;
@@ -131,15 +136,22 @@ static void spawnBrickFlash(int x0, int y0, int x1, int y1, uint16_t baseColor, 
   brickFlashes[slot].lightColor = lightColor;
 }
 
+static inline void spawnBrickFlash(int x0, int y0, int x1, int y1, uint16_t baseColor, uint16_t lightColor) {
+  spawnBrickFlashWithDurationUs(x0, y0, x1, y1, BRICK_FLASH_TOTAL_US, baseColor, lightColor);
+}
+
 static inline uint16_t brickFlashColorAt(int x, int y) {
   for (int i = 0; i < BRICK_FLASH_SLOTS; i++) {
     const BrickFlash &f = brickFlashes[i];
     if (!f.active) continue;
     if (x < f.x0 || x > f.x1 || y < f.y0 || y > f.y1) continue;
 
-    if (f.ttl >= 4) return FastILI9341::rgb565(255, 255, 255);
-    if (f.ttl == 3) return FastILI9341::rgb565(255, 245, 180);
-    if (f.ttl == 2) return f.lightColor;
+    if (f.totalUs == 0) return f.baseColor;
+    uint64_t rem4 = (uint64_t)f.remUs * 4u;
+    uint64_t tot = (uint64_t)f.totalUs;
+    if (rem4 > tot * 3u) return FastILI9341::rgb565(255, 255, 255);
+    if (rem4 > tot * 2u) return FastILI9341::rgb565(255, 245, 180);
+    if (rem4 > tot * 1u) return f.lightColor;
     return f.baseColor;
   }
   return 0;
@@ -152,11 +164,18 @@ static void markBrickFlashesDirty() {
   }
 }
 
-static void advanceBrickFlashes() {
+static void advanceBrickFlashes(uint32_t dtUs) {
+  if (dtUs == 0) return;
   for (int i = 0; i < BRICK_FLASH_SLOTS; i++) {
     if (!brickFlashes[i].active) continue;
-    if (brickFlashes[i].ttl > 0) brickFlashes[i].ttl--;
-    if (brickFlashes[i].ttl == 0) {
+    if (brickFlashes[i].remUs > dtUs) {
+      brickFlashes[i].remUs -= dtUs;
+      continue;
+    }
+    if (brickFlashes[i].remUs > 0) {
+      brickFlashes[i].remUs = 0;
+    }
+    if (brickFlashes[i].remUs == 0) {
       // Po wygaśnięciu trzeba przerysować obszar, inaczej zostaje "duch" flasha.
       dirty.add(brickFlashes[i].x0 - 1, brickFlashes[i].y0 - 1, brickFlashes[i].x1 + 1, brickFlashes[i].y1 + 1);
       brickFlashes[i].active = false;
@@ -208,36 +227,31 @@ static int bdx = BALL_SPEED_SLOW, bdy = -BALL_SPEED_FAST;
 static int br = BALL_R;
 static bool ballAttached = true;
 static bool prevFirePressed = false;
-static int32_t ballFx = 0;
-static int32_t ballFy = 0;
+static float ballFx = 0.0f;
+static float ballFy = 0.0f;
 static int32_t ballSpeedScaleQ = (int32_t)BALL_SPEED_FAST << BALL_POS_FP_SHIFT;  // actual speed in Q8
 static int32_t ballSpeedPotFiltQ = -1;  // filtered analogRead(A5) in Q4
-static uint32_t ballLastStepUs = 0;
 
 static inline void syncBallFixedFromInt() {
-  ballFx = (int32_t)bx << BALL_POS_FP_SHIFT;
-  ballFy = (int32_t)by << BALL_POS_FP_SHIFT;
+  ballFx = (float)bx;
+  ballFy = (float)by;
 }
 
-static inline void resetBallStepTimer() {
-  ballLastStepUs = micros();
-}
-
-static inline int32_t readBallDtQ() {
+static inline float readFrameDtSec() {
   uint32_t nowUs = micros();
-  if (ballLastStepUs == 0) {
-    ballLastStepUs = nowUs;
-    return BALL_POS_FP_ONE;
+  if (frameLastUs == 0) {
+    frameLastUs = nowUs;
+    return (float)BALL_BASE_STEP_US / 1000000.0f;
   }
 
-  uint32_t dtUs = nowUs - ballLastStepUs;  // wrap-safe for uint32_t
-  ballLastStepUs = nowUs;
+  uint32_t dtUs = nowUs - frameLastUs;  // wrap-safe for uint32_t
+  frameLastUs = nowUs;
 
-  // clamp skoków czasu (np. po dłuższym blit/frame hiccup)
-  if (dtUs < 2000u) dtUs = 2000u;
+  // clamp tylko górny (duże hitch'e); dolnego nie clampujemy, bo bez delay()
+  // zawyżał prędkość piłki na szybkich klatkach i robił "nierówny timing".
   if (dtUs > 30000u) dtUs = 30000u;
 
-  return (int32_t)((dtUs << BALL_POS_FP_SHIFT) / BALL_BASE_STEP_US);  // Q8
+  return (float)dtUs / 1000000.0f;
 }
 
 static inline void updateBallSpeedFromPot() {
@@ -257,14 +271,14 @@ static inline void updateBallSpeedFromPot() {
   ballSpeedScaleQ = minQ + (rangeQ * rawSmooth) / 1023;
 }
 
-static inline void stepBallWithPotSpeed(int32_t dtQ) {
-  // skaluje bazowy wektor (bdx/bdy) płynnie w zakresie [SLOW..FAST], zachowując kąt
-  int64_t stepX = (int64_t)bdx * ballSpeedScaleQ * dtQ;
-  int64_t stepY = (int64_t)bdy * ballSpeedScaleQ * dtQ;
-  ballFx += (int32_t)(stepX / ((int64_t)BALL_SPEED_FAST * BALL_POS_FP_ONE));
-  ballFy += (int32_t)(stepY / ((int64_t)BALL_SPEED_FAST * BALL_POS_FP_ONE));
-  bx = (int)((ballFx + (BALL_POS_FP_ONE / 2)) >> BALL_POS_FP_SHIFT);
-  by = (int)((ballFy + (BALL_POS_FP_ONE / 2)) >> BALL_POS_FP_SHIFT);
+static inline void stepBallWithPotSpeed(float dtSec) {
+  // Bazowy wektor (bdx/bdy) jest w px/10ms przy speed=BALL_SPEED_FAST.
+  float speedPxPerStep = (float)ballSpeedScaleQ / (float)BALL_POS_FP_ONE;  // px / 10ms
+  float stepScale = (speedPxPerStep / (float)BALL_SPEED_FAST) * (dtSec * (1000000.0f / (float)BALL_BASE_STEP_US));
+  ballFx += (float)bdx * stepScale;
+  ballFy += (float)bdy * stepScale;
+  bx = (int)(ballFx + 0.5f);
+  by = (int)(ballFy + 0.5f);
 }
 
 static inline void setBallVelocity(int dx, int dy) {
@@ -276,7 +290,6 @@ static inline void attachBallToPaddle() {
   bx = paddleX + PADDLE_W / 2;
   by = PADDLE_Y - br - 1;
   syncBallFixedFromInt();
-  resetBallStepTimer();
 }
 
 static inline void resetBallOnPaddle() {
@@ -366,6 +379,8 @@ static void enterGameOver() {
 
 static void resetGame() {
   paddleX = (gfx.width() - PADDLE_W) / 2;
+  paddleXf = (float)paddleX;
+  frameLastUs = micros();
   lives = START_LIVES;
   score = 0;
   gameOver = false;
@@ -408,9 +423,6 @@ static inline uint16_t bgAt(int x, int y) {
     return black;
   }
 
-  uint16_t flashColor = brickFlashColorAt(x, y);
-  if (flashColor) return flashColor;
-
   // PADDLE
   if (y >= PADDLE_Y && y < PADDLE_Y + PADDLE_H && x >= paddleX && x < paddleX + PADDLE_W) {
     return FastILI9341::rgb565(255, 255, 255);
@@ -425,6 +437,9 @@ static inline uint16_t bgAt(int x, int y) {
       int col = x / BRICK_W;
 
       if (col >= 0 && col < BRICK_COLS) {
+        uint16_t flashColor = brickFlashColorAt(x, y);
+        if (flashColor) return flashColor;
+
         if (brickPresent(col, row)) {
           int localX = x - col * BRICK_W;
           int localY = yy - row * BRICK_H;
@@ -504,20 +519,20 @@ static void snapAngles() {
   bdy = sy * ay;
 }
 
-void updatePaddle() {
+void updatePaddle(float dtSec) {
   int old = paddleX;
+  int dir = 0;
+  if (digitalRead(PIN_LEFT) == LOW) dir--;
+  if (digitalRead(PIN_RIGHT) == LOW) dir++;
+  float dtSteps = dtSec * (1000000.0f / (float)PADDLE_BASE_STEP_US);  // 10ms steps
+  paddleXf += (float)dir * (float)paddleSpeed * dtSteps;
 
-  if (digitalRead(PIN_LEFT) == LOW)
-    paddleX -= paddleSpeed;
+  float minX = 0.0f;
+  float maxX = (float)(gfx.width() - PADDLE_W);
+  if (paddleXf < minX) paddleXf = minX;
+  if (paddleXf > maxX) paddleXf = maxX;
 
-  if (digitalRead(PIN_RIGHT) == LOW)
-    paddleX += paddleSpeed;
-
-  if (paddleX < 0)
-    paddleX = 0;
-
-  if (paddleX + PADDLE_W >= gfx.width())
-    paddleX = gfx.width() - PADDLE_W;
+  paddleX = (int)(paddleXf + 0.5f);
 
   if (old != paddleX) {
     dirty.add(old - 2, PADDLE_Y - 2,
@@ -560,6 +575,8 @@ bool bricksRemaining() {
 }
 
 void loop() {
+  float frameDtSec = readFrameDtSec();
+  uint32_t frameDtUs = (uint32_t)(frameDtSec * 1000000.0f + 0.5f);
   bool firePressed = (digitalRead(PIN_FIRE) == LOW);
   bool fireEdge = firePressed && !prevFirePressed;
   bool fireReleaseEdge = !firePressed && prevFirePressed;
@@ -570,11 +587,10 @@ void loop() {
       resetGame();
       flushDirty();
     }
-    delay(10);
     return;
   }
 
-  updatePaddle();
+  updatePaddle(frameDtSec);
   markBrickFlashesDirty();
   int oldx = bx, oldy = by;
 
@@ -587,10 +603,9 @@ void loop() {
   } else {
     updateBallSpeedFromPot();
     bool resyncBallPos = false;
-    int32_t ballDtQ = readBallDtQ();
 
     // ruch
-    stepBallWithPotSpeed(ballDtQ);
+    stepBallWithPotSpeed(frameDtSec);
 
     // ściany
     if (bx - br < 0) {
@@ -620,7 +635,6 @@ void loop() {
       lives--;
       if (lives <= 0) {
         enterGameOver();
-        delay(10);
         return;
       } else {
         updateHudCache();
@@ -665,6 +679,7 @@ void loop() {
 
             if (!bricksRemaining()) {
               resetBricks();
+              clearBrickFlashes();
 
               // pełny redraw
               dirty.clear();
@@ -694,8 +709,5 @@ void loop() {
   }
 
   flushDirty();
-  advanceBrickFlashes();
-
-  // FPS limit
-  delay(10);
+  advanceBrickFlashes(frameDtUs);
 }
