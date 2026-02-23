@@ -1,5 +1,7 @@
 #include "FastILI9341.h"
 #include "DirtyRects.h"
+#include "Font5x7.h"
+#include <stdio.h>
 
 #define TFT_CS 10
 #define TFT_DC 9
@@ -35,6 +37,8 @@ static int paddleX = (320 - PADDLE_W) / 2;
 static int paddleSpeed = 5;
 static int lives = START_LIVES;
 static uint32_t score = 0;
+static bool gameOver = false;
+static uint32_t gameOverScore = 0;
 
 
 
@@ -77,11 +81,11 @@ struct BallVel {
 static constexpr BallVel kPaddleBounceVel[BALL_PADDLE_BOUNCE_ZONES] = {
   { -BALL_SPEED_FAST, -BALL_SPEED_SLOW },
   { -BALL_SPEED_SLOW, -BALL_SPEED_FAST },
-  { -1,               -BALL_SPEED_FAST },
-  {  0,               -BALL_SPEED_FAST },
-  {  1,               -BALL_SPEED_FAST },
-  {  BALL_SPEED_SLOW, -BALL_SPEED_FAST },
-  {  BALL_SPEED_FAST, -BALL_SPEED_SLOW },
+  { -1, -BALL_SPEED_FAST },
+  { 0, -BALL_SPEED_FAST },
+  { 1, -BALL_SPEED_FAST },
+  { BALL_SPEED_SLOW, -BALL_SPEED_FAST },
+  { BALL_SPEED_FAST, -BALL_SPEED_SLOW },
 };
 
 static int bx = 60, by = 120;
@@ -118,10 +122,65 @@ static inline void applyPaddleBounceAngle() {
   setBallVelocity(kPaddleBounceVel[zone].dx, kPaddleBounceVel[zone].dy);
 }
 
+static void fillRect565(int x0, int y0, int w, int h, uint16_t color565) {
+  if (w <= 0 || h <= 0) return;
+
+  if (x0 < 0) {
+    w += x0;
+    x0 = 0;
+  }
+  if (y0 < 0) {
+    h += y0;
+    y0 = 0;
+  }
+  if (x0 >= gfx.width() || y0 >= gfx.height()) return;
+  if (x0 + w > gfx.width()) w = gfx.width() - x0;
+  if (y0 + h > gfx.height()) h = gfx.height() - y0;
+  if (w <= 0 || h <= 0) return;
+
+  for (int ty = 0; ty < h; ty += MAX_RH) {
+    int hh = min(MAX_RH, h - ty);
+    for (int tx = 0; tx < w; tx += MAX_RW) {
+      int ww = min(MAX_RW, w - tx);
+      int n = ww * hh;
+      for (int i = 0; i < n; i++) regionbuf[i] = color565;
+      gfx.blit565(x0 + tx, y0 + ty, ww, hh, regionbuf);
+    }
+  }
+}
+
+static void drawGameOverScreen() {
+  const uint16_t bg = FastILI9341::rgb565(6, 8, 18);
+  const uint16_t accent = FastILI9341::rgb565(255, 64, 64);
+  const uint16_t scorec = FastILI9341::rgb565(255, 220, 120);
+  const uint16_t textc = FastILI9341::rgb565(220, 230, 255);
+
+  char scoreBuf[16];
+  snprintf(scoreBuf, sizeof(scoreBuf), "%lu", (unsigned long)gameOverScore);
+
+  dirty.clear();
+  gfx.fillScreen565(bg);
+  fillRect565(24, 26, gfx.width() - 48, 4, accent);
+  fillRect565(24, gfx.height() - 30, gfx.width() - 48, 4, accent);
+
+  Font5x7::drawCenteredText(gfx.width(), 52, "GAME OVER", 4, accent, fillRect565);
+  Font5x7::drawCenteredText(gfx.width(), 104, "SCORE", 3, textc, fillRect565);
+  Font5x7::drawCenteredText(gfx.width(), 132, scoreBuf, 6, scorec, fillRect565);
+  Font5x7::drawCenteredText(gfx.width(), 184, "PRESS FIRE", 2, textc, fillRect565);
+}
+
+static void enterGameOver() {
+  gameOver = true;
+  gameOverScore = score;
+  drawGameOverScreen();
+}
+
 static void resetGame() {
   paddleX = (gfx.width() - PADDLE_W) / 2;
   lives = START_LIVES;
   score = 0;
+  gameOver = false;
+  gameOverScore = 0;
   resetBricks();
   resetBallOnPaddle();
   dirty.clear();
@@ -145,30 +204,24 @@ static inline bool circleRectHit(int cx, int cy, int r, int x0, int y0, int x1, 
 }
 
 // ====== Background sampling ======
-static inline uint16_t bgAt(int x,int y)
-{
-  const uint16_t black = FastILI9341::rgb565(0,0,0);
+static inline uint16_t bgAt(int x, int y) {
+  const uint16_t black = FastILI9341::rgb565(0, 0, 0);
 
   // PADDLE
-  if (y >= PADDLE_Y && y < PADDLE_Y + PADDLE_H &&
-      x >= paddleX && x < paddleX + PADDLE_W)
-  {
-    return FastILI9341::rgb565(255,255,255);
+  if (y >= PADDLE_Y && y < PADDLE_Y + PADDLE_H && x >= paddleX && x < paddleX + PADDLE_W) {
+    return FastILI9341::rgb565(255, 255, 255);
   }
 
   // BRICKS
-  if (y >= BRICK_Y0)
-  {
+  if (y >= BRICK_Y0) {
     int yy = y - BRICK_Y0;
     int row = yy / BRICK_H;
 
-    if (row >= 0 && row < BRICK_ROWS)
-    {
+    if (row >= 0 && row < BRICK_ROWS) {
       int col = x / BRICK_W;
 
-      if (col >= 0 && col < BRICK_COLS)
-      {
-        if (brickPresent(col,row))
+      if (col >= 0 && col < BRICK_COLS) {
+        if (brickPresent(col, row))
           return rowColor[row];
       }
     }
@@ -296,11 +349,22 @@ bool bricksRemaining() {
 }
 
 void loop() {
-  updatePaddle();
-  int oldx = bx, oldy = by;
   bool firePressed = (digitalRead(PIN_FIRE) == LOW);
   bool fireEdge = firePressed && !prevFirePressed;
+  bool fireReleaseEdge = !firePressed && prevFirePressed;
   prevFirePressed = firePressed;
+
+  if (gameOver) {
+    if (fireReleaseEdge) {
+      resetGame();
+      flushDirty();
+    }
+    delay(10);
+    return;
+  }
+
+  updatePaddle();
+  int oldx = bx, oldy = by;
 
   bool fell = false;
   if (ballAttached) {
@@ -336,7 +400,9 @@ void loop() {
     if (by + br >= gfx.height()) {
       lives--;
       if (lives <= 0) {
-        resetGame();
+        enterGameOver();
+        delay(10);
+        return;
       } else {
         // dodaj rect starej piłki, potem reset na paddle
         dirty.add(oldx - br - 3, oldy - br - 3, oldx + br + 3, oldy + br + 3);
