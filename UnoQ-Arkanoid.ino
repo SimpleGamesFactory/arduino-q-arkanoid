@@ -508,5 +508,5 @@ void loop() {
   flushDirty();
 
   // FPS limit
-  delay(10);
+  delay(analogRead(A5));
 }
