@@ -1,4 +1,5 @@
 #include "Hud.h"
+#include "SGF/Color565.h"
 #include "SGF/FastILI9341.h"
 #include <stdio.h>
 
@@ -22,8 +23,8 @@ void Hud::markDirty(int screenW) {
 }
 
 uint16_t Hud::pixelColor(int x, int y, int screenW) const {
-  const uint16_t hudLivesColor = FastILI9341::rgb565(255, 255, 255);
-  const uint16_t hudScoreColor = FastILI9341::rgb565(255, 220, 120);
+  const uint16_t hudLivesColor = Color565::rgb(255, 255, 255);
+  const uint16_t hudScoreColor = Color565::rgb(255, 220, 120);
 
   int ly = y - TEXT_Y;
   int lx = x - MARGIN_X;

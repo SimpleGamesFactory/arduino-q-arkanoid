@@ -4,6 +4,8 @@
 
 class Ball {
 public:
+  static constexpr uint32_t DEFAULT_BASE_STEP_US = 10000;
+
   Ball(int radius, int speedSlow, int speedFast, int posFpOne);
 
   int x = 0;
@@ -16,6 +18,7 @@ public:
   float fy = 0.0f;
   int32_t speedScaleQ = 0;
   int32_t speedPotFiltQ = -1;
+  uint32_t baseStepUs = DEFAULT_BASE_STEP_US;
 
   void syncFixedFromInt();
   void setVelocity(int newDx, int newDy);
@@ -23,7 +26,8 @@ public:
   void resetOnPaddle(int paddleX, int paddleW, int paddleY, int launchDx, int launchDy);
   void launch(int launchDx, int launchDy);
   void updateSpeedFromPot(int raw, int32_t minQ, int32_t maxQ);
-  void stepScaled(float dtSec, uint32_t baseStepUs);
+  void onPhysics(float delta);
+  void snapAngles();
 
   int speedSlow() const { return speedSlow_; }
   int speedFast() const { return speedFast_; }

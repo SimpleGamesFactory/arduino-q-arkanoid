@@ -1,5 +1,7 @@
 #include "Ball.h"
 
+#include <stdlib.h>
+
 Ball::Ball(int radius, int speedSlow, int speedFast, int posFpOne)
   : r(radius), speedSlow_(speedSlow), speedFast_(speedFast), posFpOne_(posFpOne) {}
 
@@ -43,11 +45,32 @@ void Ball::updateSpeedFromPot(int raw, int32_t minQ, int32_t maxQ) {
   speedScaleQ = minQ + (rangeQ * rawSmooth) / 1023;
 }
 
-void Ball::stepScaled(float dtSec, uint32_t baseStepUs) {
+void Ball::onPhysics(float delta) {
   float speedPxPerStep = static_cast<float>(speedScaleQ) / static_cast<float>(posFpOne_);
-  float stepScale = (speedPxPerStep / static_cast<float>(speedFast_)) * (dtSec * (1000000.0f / static_cast<float>(baseStepUs)));
+  float stepScale =
+    (speedPxPerStep / static_cast<float>(speedFast_)) *
+    (delta * (1000000.0f / static_cast<float>(baseStepUs)));
   fx += static_cast<float>(dx) * stepScale;
   fy += static_cast<float>(dy) * stepScale;
   x = static_cast<int>(fx + 0.5f);
   y = static_cast<int>(fy + 0.5f);
+}
+
+void Ball::snapAngles() {
+  int sx = (dx >= 0) ? 1 : -1;
+  int sy = (dy >= 0) ? 1 : -1;
+  int ax = abs(dx);
+  int ay = abs(dy);
+  if (ax == ay) {
+    ax = speedSlow_;
+    ay = speedFast_;
+  } else if (ax > ay) {
+    ax = speedFast_;
+    ay = speedSlow_;
+  } else {
+    ax = speedSlow_;
+    ay = speedFast_;
+  }
+  dx = sx * ax;
+  dy = sy * ay;
 }

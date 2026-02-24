@@ -3,22 +3,33 @@
 #include <stdint.h>
 
 #include "Ball.h"
+#include "GameOverScene.h"
+#include "PlayingScene.h"
 #include "SGF/DirtyRects.h"
 #include "SGF/FastILI9341.h"
+#include "SGF/Actions.h"
 #include "SGF/Game.h"
+#include "SGF/Scene.h"
 #include "Hud.h"
 #include "Paddle.h"
 #include "SGF/RectFlashAnim.h"
 #include "SGF/TileFlusher.h"
 #include "SGF/IRenderTarget.h"
 #include "SGF/Sprites.h"
+#include "TitleScene.h"
 
 static constexpr uint32_t ARKANOID_FRAME_DEFAULT_STEP_US = 10000u;
 static constexpr uint32_t ARKANOID_FRAME_MAX_STEP_US = 30000u;
 
 class ArkanoidGame : public Game {
 public:
-  ArkanoidGame(FastILI9341& gfx, uint8_t leftPin, uint8_t rightPin, uint8_t firePin);
+  ArkanoidGame(
+    FastILI9341& gfx,
+    uint8_t leftPin,
+    uint8_t rightPin,
+    uint8_t firePin,
+    uint8_t ballSpeedPotPin
+  );
 
   void setup();
 
@@ -33,12 +44,8 @@ private:
   static constexpr int MAX_RH = 80;
 
   // Paddle
-  static constexpr int PADDLE_W = 60;
-  static constexpr int PADDLE_H = 8;
-  static constexpr int PADDLE_Y = 220;
   static constexpr int START_LIVES = 3;
   static constexpr uint16_t SCORE_PER_BRICK = 10;
-  static constexpr uint32_t PADDLE_BASE_STEP_US = 10000;
 
   // Bricks
   static constexpr int BRICK_W = 20;
@@ -61,7 +68,6 @@ private:
   static constexpr int BALL_PADDLE_BOUNCE_ZONES = 7;
   static constexpr int BALL_POS_FP_SHIFT = 8;
   static constexpr int BALL_POS_FP_ONE = 1 << BALL_POS_FP_SHIFT;
-  static constexpr uint32_t BALL_BASE_STEP_US = 10000;
   static constexpr int32_t POT_BALL_SPEED_MIN_Q = BALL_POS_FP_ONE / 2;
   static constexpr int32_t POT_BALL_SPEED_MAX_Q = BALL_POS_FP_ONE * 5;
 
@@ -77,19 +83,19 @@ private:
   uint8_t pinLeft = 0;
   uint8_t pinRight = 0;
   uint8_t pinFire = 0;
+  uint8_t pinBallSpeedPot = 0;
 
   uint16_t regionBuf[MAX_RW * MAX_RH]{};
-  uint16_t paddleSpritePixels[PADDLE_W * PADDLE_H]{};
+  uint16_t paddleSpritePixels[Paddle::DEFAULT_W * Paddle::DEFAULT_H]{};
   static constexpr int BALL_SPRITE_SIZE = BALL_R * 2 + 1;
   uint16_t ballSpritePixels[BALL_SPRITE_SIZE * BALL_SPRITE_SIZE]{};
 
   Paddle paddle{};
-  int paddleSpeed = 5;
   int lives = START_LIVES;
   uint32_t score = 0;
-  bool gameOver = false;
   uint32_t gameOverScore = 0;
-  bool prevFirePressed = false;
+  DigitalAction fireAction;
+  PressReleaseAction fireConfirmAction;
 
   Ball ball{BALL_R, BALL_SPEED_SLOW, BALL_SPEED_FAST, BALL_POS_FP_ONE};
 
@@ -102,10 +108,18 @@ private:
   Hud hud;
   TileFlusher flusher;
   SpriteLayer sprites;
+  SceneSwitcher sceneSwitcher;
+  TitleScene titleScene;
+  PlayingScene playingScene;
+  GameOverScene gameOverScene;
+
+  friend class TitleScene;
+  friend class PlayingScene;
+  friend class GameOverScene;
 
   void onSetup() override;
-  void onPhysics(float dtSec) override;
-  void onProcess(float dtSec) override;
+  void onPhysics(float delta) override;
+  void onProcess(float delta) override;
 
   void rebuildBrickShades();
   void clearBrickFlashes();
@@ -123,22 +137,11 @@ private:
   void fillRect565(int x0, int y0, int w, int h, uint16_t color565);
   void drawText(int x, int y, const char* text, int scale, uint16_t color565);
   void drawCenteredText(int y, const char* text, int scale, uint16_t color565);
-  void drawGameOverScreen();
-  void enterGameOver();
-  void resetGameFromGameOverWithFade();
   void resetGame();
-
-  bool insideBall(int x, int y) const;
-  bool circleRectHit(int cx, int cy, int r, int x0, int y0, int x1, int y1) const;
-  bool paddleRoundedBodyAt(int x, int y) const;
-  bool paddleShadowAt(int x, int y) const;
 
   uint16_t bgAt(int x, int y) const;
   void renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* buf);
   void flushDirty();
-  void snapAngles();
-  void updatePaddle(float dtSec);
-  void applyPaddleBounceAngle();
   void buildSprites();
   void updateSpriteLayer();
 };

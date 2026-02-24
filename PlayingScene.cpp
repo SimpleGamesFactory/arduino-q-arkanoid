@@ -1,0 +1,201 @@
+#include "PlayingScene.h"
+
+#include <Arduino.h>
+
+#include "ArkanoidGame.h"
+#include "SGF/Collision.h"
+
+void PlayingScene::applyPaddleBounceAngle() {
+  int hit = constrain(game.ball.x - game.paddle.x, 0, game.paddle.w - 1);
+  int zone = (hit * game.BALL_PADDLE_BOUNCE_ZONES) / game.paddle.w;
+  zone = constrain(zone, 0, game.BALL_PADDLE_BOUNCE_ZONES - 1);
+  game.ball.setVelocity(
+    game.kPaddleBounceVel[zone].dx,
+    game.kPaddleBounceVel[zone].dy
+  );
+}
+
+PlayingScene::PlayingScene(ArkanoidGame& game) : game(game) {}
+
+void PlayingScene::onPhysics(float delta) {
+  int dir = 0;
+  if (digitalRead(game.pinLeft) == LOW) {
+    dir--;
+  }
+  if (digitalRead(game.pinRight) == LOW) {
+    dir++;
+  }
+  game.paddle.velocityX = static_cast<float>(dir) * game.paddle.speedPxPerSec;
+  Paddle::MoveResult paddleMove = game.paddle.onPhysics(delta);
+  if (paddleMove.moved) {
+    game.dirty.add(
+      paddleMove.oldX - 2,
+      game.paddle.y - 2,
+      paddleMove.oldX + game.paddle.w + 2,
+      game.paddle.y + game.paddle.h + 2
+    );
+    game.dirty.add(
+      game.paddle.x - 2,
+      game.paddle.y - 2,
+      game.paddle.x + game.paddle.w + 2,
+      game.paddle.y + game.paddle.h + 2
+    );
+  }
+  game.markBrickFlashesDirty();
+  int oldx = game.ball.x;
+  int oldy = game.ball.y;
+
+  bool fell = false;
+  if (game.ball.attached) {
+    game.ball.attachToPaddle(game.paddle.x, game.paddle.w, game.paddle.y);
+    if (game.fireAction.justPressed()) {
+      game.ball.launch(game.BALL_SPEED_SLOW, -game.BALL_SPEED_FAST);
+    }
+  } else {
+    game.ball.updateSpeedFromPot(
+      analogRead(game.pinBallSpeedPot),
+      game.POT_BALL_SPEED_MIN_Q,
+      game.POT_BALL_SPEED_MAX_Q
+    );
+    bool resyncBallPos = false;
+
+    game.ball.onPhysics(delta);
+
+    if (game.ball.x - game.ball.r < 0) {
+      game.ball.x = game.ball.r;
+      game.ball.dx = -game.ball.dx;
+      resyncBallPos = true;
+    }
+    if (game.ball.x + game.ball.r >= game.gfx.width()) {
+      game.ball.x = game.gfx.width() - game.ball.r - 1;
+      game.ball.dx = -game.ball.dx;
+      resyncBallPos = true;
+    }
+    if (game.ball.y - game.ball.r < Hud::HEIGHT) {
+      game.ball.y = Hud::HEIGHT + game.ball.r;
+      game.ball.dy = -game.ball.dy;
+      resyncBallPos = true;
+    }
+
+    if (game.ball.dy > 0 &&
+        game.ball.y + game.ball.r >= game.paddle.y &&
+        game.ball.y + game.ball.r <= game.paddle.y + game.paddle.h &&
+        game.ball.x >= game.paddle.x &&
+        game.ball.x <= game.paddle.x + game.paddle.w) {
+      game.ball.y = game.paddle.y - game.ball.r - 1;
+      applyPaddleBounceAngle();
+      resyncBallPos = true;
+    }
+
+    if (game.ball.y + game.ball.r >= game.gfx.height()) {
+      game.lives--;
+      if (game.lives <= 0) {
+        game.gfx.fadeOutBacklight(game.GAMEOVER_FADE_OUT_MS);
+        game.gameOverScore = game.score;
+        game.sceneSwitcher.switchTo(game.gameOverScene);
+        game.gfx.fadeInBacklight(game.GAMEOVER_FADE_IN_MS);
+        game.resetClock();
+        return;
+      } else {
+        game.hud.update(game.lives, game.score, game.gfx.width());
+        game.hud.markDirty(game.gfx.width());
+        game.dirty.add(
+          oldx - game.ball.r - 3,
+          oldy - game.ball.r - 3,
+          oldx + game.ball.r + 3,
+          oldy + game.ball.r + 3
+        );
+        game.ball.resetOnPaddle(
+          game.paddle.x,
+          game.paddle.w,
+          game.paddle.y,
+          game.BALL_SPEED_SLOW,
+          -game.BALL_SPEED_FAST
+        );
+      }
+      fell = true;
+    }
+
+    if (!fell) {
+      bool hit = false;
+
+      int cx0 = max(0, (game.ball.x - game.ball.r) / game.BRICK_W);
+      int cx1 = min(game.BRICK_COLS - 1, (game.ball.x + game.ball.r) / game.BRICK_W);
+      int ry0 = max(0, (game.ball.y - game.ball.r - game.BRICK_Y0) / game.BRICK_H);
+      int ry1 = min(game.BRICK_ROWS - 1, (game.ball.y + game.ball.r - game.BRICK_Y0) / game.BRICK_H);
+
+      for (int r = ry0; r <= ry1 && !hit; r++) {
+        for (int c = cx0; c <= cx1; c++) {
+          if (!game.brickPresent(c, r)) {
+            continue;
+          }
+          int x0 = c * game.BRICK_W;
+          int y0 = game.BRICK_Y0 + r * game.BRICK_H;
+          int x1 = x0 + game.BRICK_W - 1;
+          int y1 = y0 + game.BRICK_H - 1;
+          if (::circleRectHit(game.ball.x, game.ball.y, game.ball.r, x0, y0, x1, y1)) {
+            hit = true;
+
+            bool prevOutY =
+              (oldy < y0 - game.ball.r) || (oldy > y1 + game.ball.r);
+            if (prevOutY) {
+              game.ball.dy = -game.ball.dy;
+            } else {
+              game.ball.dx = -game.ball.dx;
+            }
+
+            game.ball.snapAngles();
+
+            game.brickClear(c, r);
+            game.spawnBrickFlash(x0, y0, x1, y1, game.rowColor[r], game.rowColorLight[r]);
+            game.score += game.SCORE_PER_BRICK;
+            game.hud.update(game.lives, game.score, game.gfx.width());
+            game.hud.markDirty(game.gfx.width());
+
+            if (!game.bricksRemaining()) {
+              game.resetBricks();
+              game.clearBrickFlashes();
+
+              game.dirty.clear();
+              game.dirty.add(0, 0, game.gfx.width() - 1, game.gfx.height() - 1);
+            }
+
+            game.dirty.add(x0 - 2, y0 - 2, x1 + 2, y1 + 2);
+            break;
+          }
+        }
+      }
+    }
+
+    if (resyncBallPos) {
+      game.ball.syncFixedFromInt();
+    }
+  }
+
+  bool ballMoved = (game.ball.x != oldx) || (game.ball.y != oldy);
+
+  if (!fell && ballMoved) {
+    game.dirty.add(
+      oldx - game.ball.r - 3,
+      oldy - game.ball.r - 3,
+      oldx + game.ball.r + 3,
+      oldy + game.ball.r + 3
+    );
+  }
+  if (ballMoved || fell) {
+    game.dirty.add(
+      game.ball.x - game.ball.r - 3,
+      game.ball.y - game.ball.r - 3,
+      game.ball.x + game.ball.r + 3,
+      game.ball.y + game.ball.r + 3
+    );
+  }
+
+  game.updateSpriteLayer();
+}
+
+void PlayingScene::onProcess(float delta) {
+  uint32_t frameDtUs = (uint32_t)(delta * 1000000.0f + 0.5f);
+  game.flushDirty();
+  game.advanceBrickFlashes(frameDtUs);
+}
