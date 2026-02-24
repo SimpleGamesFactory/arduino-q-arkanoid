@@ -6,6 +6,7 @@
 - If a change spans multiple areas of a file, briefly state what will be altered before editing.
 - Keep the project’s style/structure; do not impose your own organization unasked.
 - Follow `CODING_STANDARDS.md` for any C++/Arduino code changes.
+- Core structure is described in `SGF/README.md`; consult it when touching shared components.
 - For UI/text tweaks, don’t alter wording unless necessary.
 - Prefer small, precise patches over sweeping rewrites.
 - Ask when something is unclear instead of guessing.
