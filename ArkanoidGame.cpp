@@ -4,7 +4,6 @@
 #include "SGF/Color565.h"
 #include "SGF/DirtyRects.h"
 #include "SGF/FastILI9341.h"
-#include "SGF/Font5x7.h"
 
 ArkanoidGame::ArkanoidGame(
   FastILI9341& gfx,
@@ -35,12 +34,7 @@ ArkanoidGame::ArkanoidGame(
   paddle.xf = (float)paddle.x;
 
   ball.resetSpeedControl();
-  ball.dx = ball.defaultLaunchDx();
-  ball.dy = ball.defaultLaunchDy();
-  ball.attached = true;
-  ball.x = paddle.x + paddle.w / 2;
-  ball.y = paddle.y - ball.r - 1;
-  ball.syncFixedFromInt();
+  ball.resetOnPaddle(paddle);
 
   paddle.bindSprite(sprites.sprite(0));
   ball.bindSprite(sprites.sprite(1));
@@ -97,52 +91,6 @@ bool ArkanoidGame::bricksRemaining() const {
   return false;
 }
 
-void ArkanoidGame::fillRect565(int x0, int y0, int w, int h, uint16_t color565) {
-  if (w <= 0 || h <= 0) return;
-
-  if (x0 < 0) {
-    w += x0;
-    x0 = 0;
-  }
-  if (y0 < 0) {
-    h += y0;
-    y0 = 0;
-  }
-  if (x0 >= gfx.width() || y0 >= gfx.height()) return;
-  if (x0 + w > gfx.width()) w = gfx.width() - x0;
-  if (y0 + h > gfx.height()) h = gfx.height() - y0;
-  if (w <= 0 || h <= 0) return;
-
-  for (int ty = 0; ty < h; ty += MAX_RH) {
-    int hh = min(MAX_RH, h - ty);
-    for (int tx = 0; tx < w; tx += MAX_RW) {
-      int ww = min(MAX_RW, w - tx);
-      int n = ww * hh;
-      for (int i = 0; i < n; i++) regionBuf[i] = color565;
-      gfx.blit565(x0 + tx, y0 + ty, ww, hh, regionBuf);
-    }
-  }
-}
-
-void ArkanoidGame::drawText(int x, int y, const char* text, int scale, uint16_t color565) {
-  if (!text || scale <= 0) return;
-
-  const int w = Font5x7::textWidth(text, scale);
-  const int h = 7 * scale;
-  for (int yy = 0; yy < h; yy++) {
-    for (int xx = 0; xx < w; xx++) {
-      if (Font5x7::textPixel(text, scale, xx, yy)) {
-        fillRect565(x + xx, y + yy, 1, 1, color565);
-      }
-    }
-  }
-}
-
-void ArkanoidGame::drawCenteredText(int y, const char* text, int scale, uint16_t color565) {
-  int x = (gfx.width() - Font5x7::textWidth(text, scale)) / 2;
-  drawText(x, y, text, scale, color565);
-}
-
 void ArkanoidGame::resetGame() {
   paddle.setBounds(0, gfx.width() - paddle.w);
   paddle.velocityX = 0.0f;
@@ -159,11 +107,14 @@ void ArkanoidGame::resetGame() {
   hud.update(lives, score, gfx.width());
   resetBricks();
   clearBrickFlashes();
-  ball.resetOnPaddle(paddle.x, paddle.w, paddle.y, ball.defaultLaunchDx(), ball.defaultLaunchDy());
-  dirty.clear();
-  dirty.add(0, 0, gfx.width() - 1, gfx.height() - 1);
+  ball.resetOnPaddle(paddle);
+  invalidateScreen();
   paddle.updateSprite(sprites.sprite(0));
   ball.updateSprite(sprites.sprite(1));
+}
+
+void ArkanoidGame::invalidateScreen() {
+  dirty.invalidate(gfx);
 }
 
 uint16_t ArkanoidGame::bgAt(int x, int y) const {
@@ -219,17 +170,7 @@ void ArkanoidGame::renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* 
 }
 
 void ArkanoidGame::flushDirty() {
-  struct IliTarget : public IRenderTarget {
-    FastILI9341& t;
-    explicit IliTarget(FastILI9341& target) : t(target) {}
-    int width() const override { return t.width(); }
-    int height() const override { return t.height(); }
-    void blit565(int x0, int y0, int w, int h, const uint16_t* pix) override {
-      t.blit565(x0, y0, w, h, pix);
-    }
-  } target{gfx};
-
-  flusher.flush(target, regionBuf, [this](int x0, int y0, int w, int h, uint16_t* buf) {
+  flusher.flush(gfx, regionBuf, [this](int x0, int y0, int w, int h, uint16_t* buf) {
     renderRegionToBuffer(x0, y0, w, h, buf);
   });
 }

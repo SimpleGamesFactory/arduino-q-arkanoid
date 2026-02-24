@@ -14,14 +14,14 @@ void TitleScene::onEnter() {
   game.fireConfirmAction.reset();
   game.dirty.clear();
   game.gfx.fillScreen565(bg);
-  game.fillRect565(16, 18, game.gfx.width() - 32, 4, accent);
-  game.fillRect565(16, 26, game.gfx.width() - 32, 2, accent2);
-  game.fillRect565(16, game.gfx.height() - 28, game.gfx.width() - 32, 2, accent2);
-  game.fillRect565(16, game.gfx.height() - 20, game.gfx.width() - 32, 4, accent);
+  game.gfx.fillRect565(16, 18, game.gfx.width() - 32, 4, accent);
+  game.gfx.fillRect565(16, 26, game.gfx.width() - 32, 2, accent2);
+  game.gfx.fillRect565(16, game.gfx.height() - 28, game.gfx.width() - 32, 2, accent2);
+  game.gfx.fillRect565(16, game.gfx.height() - 20, game.gfx.width() - 32, 4, accent);
 
-  game.drawCenteredText(58, "ARDUNOID", 5, accent);
-  game.drawCenteredText(116, "ARKANOID FOR UNO Q", 2, textc);
-  game.drawCenteredText(190, "PRESS FIRE", 2, textc);
+  game.gfx.drawCenteredText(58, "ARDUNOID", 5, accent);
+  game.gfx.drawCenteredText(116, "ARKANOID FOR UNO Q", 2, textc);
+  game.gfx.drawCenteredText(190, "PRESS FIRE", 2, textc);
 }
 
 void TitleScene::onPhysics(float delta) {

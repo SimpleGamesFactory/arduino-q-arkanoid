@@ -4,6 +4,8 @@
 
 #include "SGF/Sprites.h"
 
+class Paddle;
+
 class Ball {
 public:
   static constexpr uint32_t DEFAULT_BASE_STEP_US = 10000;
@@ -35,9 +37,9 @@ public:
   void syncFixedFromInt();
   void setVelocity(int newDx, int newDy);
   void resetSpeedControl();
-  void attachToPaddle(int paddleX, int paddleW, int paddleY);
-  void resetOnPaddle(int paddleX, int paddleW, int paddleY, int launchDx, int launchDy);
-  void launch(int launchDx, int launchDy);
+  void attachToPaddle(const Paddle& paddle);
+  void resetOnPaddle(const Paddle& paddle);
+  void launch();
   void updateSpeedFromPot(int raw, int32_t minQ, int32_t maxQ);
   void onPhysics(float delta);
   void bounceFromPaddleHit(int hitX, int paddleW);
@@ -55,12 +57,6 @@ public:
   int posFpOne() const {
     return posFpOne_;
   }
-  int defaultLaunchDx() const {
-    return speedSlow_;
-  }
-  int defaultLaunchDy() const {
-    return -speedFast_;
-  }
   int32_t defaultSpeedScaleQ() const {
     return static_cast<int32_t>(speedFast_) * static_cast<int32_t>(posFpOne_);
   }
@@ -77,5 +73,7 @@ private:
   const int posFpOne_;
   uint16_t spritePixels[MAX_SPRITE_SIZE * MAX_SPRITE_SIZE]{};
 
+  int defaultLaunchDx() const;
+  int defaultLaunchDy() const;
   int spriteSize() const;
 };

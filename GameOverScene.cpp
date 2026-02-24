@@ -18,13 +18,13 @@ void GameOverScene::onEnter() {
   game.fireConfirmAction.reset();
   game.dirty.clear();
   game.gfx.fillScreen565(bg);
-  game.fillRect565(24, 20, game.gfx.width() - 48, 4, accent);
-  game.fillRect565(24, game.gfx.height() - 20, game.gfx.width() - 48, 4, accent);
+  game.gfx.fillRect565(24, 20, game.gfx.width() - 48, 4, accent);
+  game.gfx.fillRect565(24, game.gfx.height() - 20, game.gfx.width() - 48, 4, accent);
 
-  game.drawCenteredText(44, "GAME OVER", 4, accent);
-  game.drawCenteredText(96, "SCORE", 3, textc);
-  game.drawCenteredText(128, scoreBuf, 6, scorec);
-  game.drawCenteredText(190, "PRESS FIRE", 2, textc);
+  game.gfx.drawCenteredText(44, "GAME OVER", 4, accent);
+  game.gfx.drawCenteredText(96, "SCORE", 3, textc);
+  game.gfx.drawCenteredText(128, scoreBuf, 6, scorec);
+  game.gfx.drawCenteredText(190, "PRESS FIRE", 2, textc);
 }
 
 void GameOverScene::onPhysics(float delta) {

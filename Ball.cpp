@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "Paddle.h"
 #include "SGF/Color565.h"
 
 Ball::Ball(int radius, int speedSlow, int speedFast, int posFpOne)
@@ -24,21 +25,21 @@ void Ball::resetSpeedControl() {
   speedPotFiltQ = -1;
 }
 
-void Ball::attachToPaddle(int paddleX, int paddleW, int paddleY) {
-  x = paddleX + paddleW / 2;
-  y = paddleY - r - 1;
+void Ball::attachToPaddle(const Paddle& paddle) {
+  x = paddle.x + paddle.w / 2;
+  y = paddle.y - r - 1;
   syncFixedFromInt();
 }
 
-void Ball::resetOnPaddle(int paddleX, int paddleW, int paddleY, int launchDx, int launchDy) {
+void Ball::resetOnPaddle(const Paddle& paddle) {
   attached = true;
-  setVelocity(launchDx, launchDy);
-  attachToPaddle(paddleX, paddleW, paddleY);
+  setVelocity(defaultLaunchDx(), defaultLaunchDy());
+  attachToPaddle(paddle);
 }
 
-void Ball::launch(int launchDx, int launchDy) {
+void Ball::launch() {
   attached = false;
-  setVelocity(launchDx, launchDy);
+  setVelocity(defaultLaunchDx(), defaultLaunchDy());
 }
 
 void Ball::updateSpeedFromPot(int raw, int32_t minQ, int32_t maxQ) {
@@ -129,6 +130,14 @@ void Ball::snapAngles() {
 
 int Ball::spriteSize() const {
   return r * 2 + 1;
+}
+
+int Ball::defaultLaunchDx() const {
+  return speedSlow_;
+}
+
+int Ball::defaultLaunchDy() const {
+  return -speedFast_;
 }
 
 void Ball::rebuildSprite() {

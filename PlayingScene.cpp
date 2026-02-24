@@ -38,9 +38,9 @@ void PlayingScene::onPhysics(float delta) {
 
   bool fell = false;
   if (game.ball.attached) {
-    game.ball.attachToPaddle(game.paddle.x, game.paddle.w, game.paddle.y);
+    game.ball.attachToPaddle(game.paddle);
     if (game.fireAction.justPressed()) {
-      game.ball.launch(game.ball.defaultLaunchDx(), game.ball.defaultLaunchDy());
+      game.ball.launch();
     }
   } else {
     game.ball.updateSpeedFromPot(
@@ -96,13 +96,7 @@ void PlayingScene::onPhysics(float delta) {
           oldx + game.ball.r + 3,
           oldy + game.ball.r + 3
         );
-        game.ball.resetOnPaddle(
-          game.paddle.x,
-          game.paddle.w,
-          game.paddle.y,
-          game.ball.defaultLaunchDx(),
-          game.ball.defaultLaunchDy()
-        );
+        game.ball.resetOnPaddle(game.paddle);
       }
       fell = true;
     }
@@ -147,8 +141,7 @@ void PlayingScene::onPhysics(float delta) {
               game.resetBricks();
               game.clearBrickFlashes();
 
-              game.dirty.clear();
-              game.dirty.add(0, 0, game.gfx.width() - 1, game.gfx.height() - 1);
+              game.invalidateScreen();
             }
 
             game.dirty.add(x0 - 2, y0 - 2, x1 + 2, y1 + 2);

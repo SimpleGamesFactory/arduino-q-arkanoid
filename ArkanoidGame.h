@@ -115,10 +115,8 @@ private:
   void resetBricks();
   bool bricksRemaining() const;
 
-  void fillRect565(int x0, int y0, int w, int h, uint16_t color565);
-  void drawText(int x, int y, const char* text, int scale, uint16_t color565);
-  void drawCenteredText(int y, const char* text, int scale, uint16_t color565);
   void resetGame();
+  void invalidateScreen();
 
   uint16_t bgAt(int x, int y) const;
   void renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* buf);
