@@ -6,16 +6,6 @@
 #include "SGF/FastILI9341.h"
 #include "SGF/Font5x7.h"
 
-const ArkanoidGame::BallVel ArkanoidGame::kPaddleBounceVel[ArkanoidGame::BALL_PADDLE_BOUNCE_ZONES] = {
-  { -ArkanoidGame::BALL_SPEED_FAST, -ArkanoidGame::BALL_SPEED_SLOW },
-  { -ArkanoidGame::BALL_SPEED_SLOW, -ArkanoidGame::BALL_SPEED_FAST },
-  { -1, -ArkanoidGame::BALL_SPEED_FAST },
-  { 0, -ArkanoidGame::BALL_SPEED_FAST },
-  { 1, -ArkanoidGame::BALL_SPEED_FAST },
-  { ArkanoidGame::BALL_SPEED_SLOW, -ArkanoidGame::BALL_SPEED_FAST },
-  { ArkanoidGame::BALL_SPEED_FAST, -ArkanoidGame::BALL_SPEED_SLOW },
-};
-
 ArkanoidGame::ArkanoidGame(
   FastILI9341& gfx,
   uint8_t leftPin,
@@ -44,11 +34,9 @@ ArkanoidGame::ArkanoidGame(
   paddle.x = (gfx.width() - paddle.w) / 2;
   paddle.xf = (float)paddle.x;
 
-  ball.r = BALL_R;
-  ball.speedScaleQ = (int32_t)BALL_SPEED_FAST << BALL_POS_FP_SHIFT;
-  ball.speedPotFiltQ = -1;
-  ball.dx = BALL_SPEED_SLOW;
-  ball.dy = -BALL_SPEED_FAST;
+  ball.resetSpeedControl();
+  ball.dx = ball.defaultLaunchDx();
+  ball.dy = ball.defaultLaunchDy();
   ball.attached = true;
   ball.x = paddle.x + paddle.w / 2;
   ball.y = paddle.y - ball.r - 1;
@@ -166,14 +154,12 @@ void ArkanoidGame::resetGame() {
   fireAction.reset(digitalRead(pinFire) == LOW);
   fireConfirmAction.reset();
 
-  ball.r = BALL_R;
-  ball.speedScaleQ = (int32_t)BALL_SPEED_FAST << BALL_POS_FP_SHIFT;
-  ball.speedPotFiltQ = -1;
+  ball.resetSpeedControl();
 
   hud.update(lives, score, gfx.width());
   resetBricks();
   clearBrickFlashes();
-  ball.resetOnPaddle(paddle.x, paddle.w, paddle.y, BALL_SPEED_SLOW, -BALL_SPEED_FAST);
+  ball.resetOnPaddle(paddle.x, paddle.w, paddle.y, ball.defaultLaunchDx(), ball.defaultLaunchDy());
   dirty.clear();
   dirty.add(0, 0, gfx.width() - 1, gfx.height() - 1);
   paddle.updateSprite(sprites.sprite(0));

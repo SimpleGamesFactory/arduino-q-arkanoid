@@ -5,16 +5,6 @@
 #include "ArkanoidGame.h"
 #include "SGF/Collision.h"
 
-void PlayingScene::applyPaddleBounceAngle() {
-  int hit = constrain(game.ball.x - game.paddle.x, 0, game.paddle.w - 1);
-  int zone = (hit * game.BALL_PADDLE_BOUNCE_ZONES) / game.paddle.w;
-  zone = constrain(zone, 0, game.BALL_PADDLE_BOUNCE_ZONES - 1);
-  game.ball.setVelocity(
-    game.kPaddleBounceVel[zone].dx,
-    game.kPaddleBounceVel[zone].dy
-  );
-}
-
 PlayingScene::PlayingScene(ArkanoidGame& game) : game(game) {}
 
 void PlayingScene::onPhysics(float delta) {
@@ -50,13 +40,13 @@ void PlayingScene::onPhysics(float delta) {
   if (game.ball.attached) {
     game.ball.attachToPaddle(game.paddle.x, game.paddle.w, game.paddle.y);
     if (game.fireAction.justPressed()) {
-      game.ball.launch(game.BALL_SPEED_SLOW, -game.BALL_SPEED_FAST);
+      game.ball.launch(game.ball.defaultLaunchDx(), game.ball.defaultLaunchDy());
     }
   } else {
     game.ball.updateSpeedFromPot(
       analogRead(game.pinBallSpeedPot),
-      game.POT_BALL_SPEED_MIN_Q,
-      game.POT_BALL_SPEED_MAX_Q
+      game.ball.speedPotMinQ(),
+      game.ball.speedPotMaxQ()
     );
     bool resyncBallPos = false;
 
@@ -84,7 +74,7 @@ void PlayingScene::onPhysics(float delta) {
         game.ball.x >= game.paddle.x &&
         game.ball.x <= game.paddle.x + game.paddle.w) {
       game.ball.y = game.paddle.y - game.ball.r - 1;
-      applyPaddleBounceAngle();
+      game.ball.bounceFromPaddleHit(game.ball.x - game.paddle.x, game.paddle.w);
       resyncBallPos = true;
     }
 
@@ -110,8 +100,8 @@ void PlayingScene::onPhysics(float delta) {
           game.paddle.x,
           game.paddle.w,
           game.paddle.y,
-          game.BALL_SPEED_SLOW,
-          -game.BALL_SPEED_FAST
+          game.ball.defaultLaunchDx(),
+          game.ball.defaultLaunchDy()
         );
       }
       fell = true;

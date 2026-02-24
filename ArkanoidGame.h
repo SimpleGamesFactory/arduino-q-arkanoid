@@ -61,22 +61,6 @@ private:
   static constexpr uint16_t GAMEOVER_EXIT_FADE_OUT_MS = 140;
   static constexpr uint16_t GAMEOVER_EXIT_FADE_IN_MS = 180;
 
-  // Ball
-  static constexpr int BALL_R = 6;
-  static constexpr int BALL_SPEED_SLOW = 1;
-  static constexpr int BALL_SPEED_FAST = 3;
-  static constexpr int BALL_PADDLE_BOUNCE_ZONES = 7;
-  static constexpr int BALL_POS_FP_SHIFT = 8;
-  static constexpr int BALL_POS_FP_ONE = 1 << BALL_POS_FP_SHIFT;
-  static constexpr int32_t POT_BALL_SPEED_MIN_Q = BALL_POS_FP_ONE / 2;
-  static constexpr int32_t POT_BALL_SPEED_MAX_Q = BALL_POS_FP_ONE * 5;
-
-  struct BallVel {
-    int dx;
-    int dy;
-  };
-  static const BallVel kPaddleBounceVel[BALL_PADDLE_BOUNCE_ZONES];
-
   FastILI9341& gfx;
   DirtyRects dirty;
 
@@ -94,7 +78,7 @@ private:
   DigitalAction fireAction;
   PressReleaseAction fireConfirmAction;
 
-  Ball ball{BALL_R, BALL_SPEED_SLOW, BALL_SPEED_FAST, BALL_POS_FP_ONE};
+  Ball ball{};
 
   uint32_t brickmask[BRICK_ROWS]{};
   uint16_t rowColor[BRICK_ROWS]{};

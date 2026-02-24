@@ -12,7 +12,5 @@ public:
   void onProcess(float delta) override;
 
 private:
-  void applyPaddleBounceAngle();
-
   ArkanoidGame& game;
 };

@@ -19,6 +19,11 @@ void Ball::setVelocity(int newDx, int newDy) {
   dy = newDy;
 }
 
+void Ball::resetSpeedControl() {
+  speedScaleQ = defaultSpeedScaleQ();
+  speedPotFiltQ = -1;
+}
+
 void Ball::attachToPaddle(int paddleX, int paddleW, int paddleY) {
   x = paddleX + paddleW / 2;
   y = paddleY - r - 1;
@@ -57,6 +62,50 @@ void Ball::onPhysics(float delta) {
   fy += static_cast<float>(dy) * stepScale;
   x = static_cast<int>(fx + 0.5f);
   y = static_cast<int>(fy + 0.5f);
+}
+
+void Ball::bounceFromPaddleHit(int hitX, int paddleW) {
+  if (paddleW <= 0) {
+    return;
+  }
+
+  int clampedHit = hitX;
+  if (clampedHit < 0) {
+    clampedHit = 0;
+  } else if (clampedHit >= paddleW) {
+    clampedHit = paddleW - 1;
+  }
+
+  int zone = (clampedHit * PADDLE_BOUNCE_ZONES) / paddleW;
+  if (zone < 0) {
+    zone = 0;
+  } else if (zone >= PADDLE_BOUNCE_ZONES) {
+    zone = PADDLE_BOUNCE_ZONES - 1;
+  }
+
+  switch (zone) {
+    case 0:
+      setVelocity(-speedFast_, -speedSlow_);
+      break;
+    case 1:
+      setVelocity(-speedSlow_, -speedFast_);
+      break;
+    case 2:
+      setVelocity(-1, -speedFast_);
+      break;
+    case 3:
+      setVelocity(0, -speedFast_);
+      break;
+    case 4:
+      setVelocity(1, -speedFast_);
+      break;
+    case 5:
+      setVelocity(speedSlow_, -speedFast_);
+      break;
+    default:
+      setVelocity(speedFast_, -speedSlow_);
+      break;
+  }
 }
 
 void Ball::snapAngles() {
