@@ -4,20 +4,20 @@ FastILI9341::FastILI9341(int cs, int dc, int rst, int led)
   : PIN_CS(cs), PIN_DC(dc), PIN_RST(rst), PIN_LED(led) {}
 
 void FastILI9341::setSPIFrequency(uint32_t spi_hz) {
-  spi_cfg.frequency = spi_hz;
+  spiCfg.frequency = spi_hz;
 }
 
 void FastILI9341::setBacklight(uint8_t level) {
-  backlightLevel_ = level;
+  backlightLevel = level;
   if (PIN_LED < 0) return;
 
-  uint32_t pwm = ((uint32_t)level * backlightPwmMax_ + 127u) / 255u;
+  uint32_t pwm = ((uint32_t)level * backlightPwmMax + 127u) / 255u;
 
   if (pwm == 0u) {
     digitalWrite(PIN_LED, LOW);
     return;
   }
-  if (pwm >= backlightPwmMax_) {
+  if (pwm >= backlightPwmMax) {
     digitalWrite(PIN_LED, HIGH);
     return;
   }
@@ -25,7 +25,7 @@ void FastILI9341::setBacklight(uint8_t level) {
 }
 
 void FastILI9341::fadeBacklightTo(uint8_t targetLevel, uint32_t durationMs) {
-  uint8_t startLevel = backlightLevel_;
+  uint8_t startLevel = backlightLevel;
   if (durationMs == 0 || startLevel == targetLevel) {
     setBacklight(targetLevel);
     return;
@@ -58,7 +58,7 @@ void FastILI9341::cmd(uint8_t c) {
   digitalWrite(PIN_CS, LOW);
   spi_buf b{ .buf = (void*)&c, .len = 1 };
   spi_buf_set s{ .buffers = &b, .count = 1 };
-  (void)spi_write(spi_dev, &spi_cfg, &s);
+  (void)spi_write(spiDev, &spiCfg, &s);
   digitalWrite(PIN_CS, HIGH);
 }
 
@@ -67,7 +67,7 @@ void FastILI9341::data(const uint8_t* d, size_t n) {
   digitalWrite(PIN_CS, LOW);
   spi_buf b{ .buf = (void*)d, .len = (uint32_t)n };
   spi_buf_set s{ .buffers = &b, .count = 1 };
-  (void)spi_write(spi_dev, &spi_cfg, &s);
+  (void)spi_write(spiDev, &spiCfg, &s);
   digitalWrite(PIN_CS, HIGH);
 }
 
@@ -120,13 +120,13 @@ bool FastILI9341::begin(uint32_t spi_hz, uint8_t madctl) {
   if (PIN_RST >= 0) digitalWrite(PIN_RST, HIGH);
 
   // UNO Q (Zephyr core): bierzemy spi2 jak wcześniej
-  spi_dev = DEVICE_DT_GET(DT_NODELABEL(spi2));
-  if (!spi_dev || !device_is_ready(spi_dev)) return false;
+  spiDev = DEVICE_DT_GET(DT_NODELABEL(spi2));
+  if (!spiDev || !device_is_ready(spiDev)) return false;
 
-  spi_cfg.frequency = spi_hz;
-  spi_cfg.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_TRANSFER_MSB;
-  spi_cfg.slave = 0;
-  spi_cfg.cs = spi_cs_control{};
+  spiCfg.frequency = spi_hz;
+  spiCfg.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_TRANSFER_MSB;
+  spiCfg.slave = 0;
+  spiCfg.cs = spi_cs_control{};
 
   hwReset();
 
@@ -166,7 +166,7 @@ void FastILI9341::fillScreen565(uint16_t color565) {
     streamBegin();
     spi_buf b{ .buf = strip, .len = (uint32_t)(W * h * 2) };
     spi_buf_set s{ .buffers = &b, .count = 1 };
-    (void)spi_write(spi_dev, &spi_cfg, &s);
+    (void)spi_write(spiDev, &spiCfg, &s);
     streamEnd();
   }
 }
@@ -184,6 +184,6 @@ void FastILI9341::blit565(int x0, int y0, int w, int h, const uint16_t* pix) {
   streamBegin();
   spi_buf b{ .buf = tmp, .len = (uint32_t)(n * 2) };
   spi_buf_set s{ .buffers = &b, .count = 1 };
-  (void)spi_write(spi_dev, &spi_cfg, &s);
+  (void)spi_write(spiDev, &spiCfg, &s);
   streamEnd();
 }

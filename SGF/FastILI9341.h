@@ -32,9 +32,9 @@ public:
   void screenRotation(uint8_t madctl);
   void screenRotation(ScreenRotation rot) { screenRotation((uint8_t)rot); }
   void setBacklight(uint8_t level);             // 0..255
-  uint8_t backlight() const { return backlightLevel_; }
-  void setBacklightPwmMax(uint32_t pwmMax) { backlightPwmMax_ = pwmMax ? pwmMax : 255u; }
-  uint32_t backlightPwmMax() const { return backlightPwmMax_; }
+  uint8_t backlight() const { return backlightLevel; }
+  void setBacklightPwmMax(uint32_t pwmMax) { backlightPwmMax = pwmMax ? pwmMax : 255u; }
+  uint32_t backlightPwmMax() const { return backlightPwmMax; }
   void fadeBacklightTo(uint8_t targetLevel, uint32_t durationMs);
   void fadeInBacklight(uint32_t durationMs) { fadeBacklightTo(255, durationMs); }
   void fadeOutBacklight(uint32_t durationMs) { fadeBacklightTo(0, durationMs); }
@@ -53,16 +53,35 @@ public:
     return (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3));
   }
   static inline uint16_t bswap16(uint16_t v){ return (uint16_t)((v<<8)|(v>>8)); }
+  static inline uint16_t lighten565(uint16_t c){
+    auto clamp = [](int v, int lo, int hi){ return v < lo ? lo : (v > hi ? hi : v); };
+    int r = (c >> 11) & 0x1F;
+    int g = (c >> 5) & 0x3F;
+    int b = c & 0x1F;
+    r = clamp(r + ((r / 3) > 0 ? (r / 3) : 1), 0, 31);
+    g = clamp(g + ((g / 3) > 0 ? (g / 3) : 1), 0, 63);
+    b = clamp(b + ((b / 3) > 0 ? (b / 3) : 1), 0, 31);
+    return (uint16_t)((r << 11) | (g << 5) | b);
+  }
+  static inline uint16_t darken565(uint16_t c){
+    int r = (c >> 11) & 0x1F;
+    int g = (c >> 5) & 0x3F;
+    int b = c & 0x1F;
+    r = (r * 2) / 3;
+    g = (g * 2) / 3;
+    b = (b * 2) / 3;
+    return (uint16_t)((r << 11) | (g << 5) | b);
+  }
 
 private:
   int PIN_CS, PIN_DC, PIN_RST, PIN_LED;
   static constexpr int W = 320;
   static constexpr int H = 240;
 
-  const struct device* spi_dev = nullptr;
-  struct spi_config spi_cfg{};
-  uint8_t backlightLevel_ = 255;
-  uint32_t backlightPwmMax_ = 255;
+  const struct device* spiDev = nullptr;
+  struct spi_config spiCfg{};
+  uint8_t backlightLevel = 255;
+  uint32_t backlightPwmMax = 255;
 
   void hwReset();
   void cmd(uint8_t c);
