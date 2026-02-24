@@ -30,7 +30,8 @@ ArkanoidGame::ArkanoidGame(FastILI9341& gfx, uint8_t leftPin, uint8_t rightPin, 
                     FastILI9341::rgb565(255, 255, 255),
                     FastILI9341::rgb565(255, 245, 180)),
     hud(dirty),
-    flusher(dirty, MAX_RW, MAX_RH) {
+    flusher(dirty, MAX_RW, MAX_RH),
+    sprites() {
   paddle.x = (gfx.width() - PADDLE_W) / 2;
   paddle.xf = (float)paddle.x;
 
@@ -43,6 +44,68 @@ ArkanoidGame::ArkanoidGame(FastILI9341& gfx, uint8_t leftPin, uint8_t rightPin, 
   ball.x = paddle.x + PADDLE_W / 2;
   ball.y = PADDLE_Y - ball.r - 1;
   ball.syncFixedFromInt();
+
+  buildSprites();
+}
+
+void ArkanoidGame::buildSprites() {
+  // Paddle sprite
+  const uint16_t paddleFace = FastILI9341::rgb565(196, 200, 208);
+  const uint16_t paddleLight = FastILI9341::rgb565(232, 236, 244);
+  const uint16_t paddleDark = FastILI9341::rgb565(130, 136, 146);
+  const uint16_t paddleMidShadow = FastILI9341::rgb565(86, 92, 102);
+
+  for (int y = 0; y < PADDLE_H; ++y) {
+    for (int x = 0; x < PADDLE_W; ++x) {
+      bool corner = ((y == 0 || y == PADDLE_H - 1) && (x == 0 || x == PADDLE_W - 1));
+      if (corner) {
+        paddleSpritePixels[y * PADDLE_W + x] = 0;
+        continue;
+      }
+      if (y == 0 || x == 0) {
+        paddleSpritePixels[y * PADDLE_W + x] = paddleLight;
+      } else if (y == PADDLE_H - 1 || x == PADDLE_W - 1) {
+        paddleSpritePixels[y * PADDLE_W + x] = paddleDark;
+      } else if (y == PADDLE_H - 2 || x == PADDLE_W - 2) {
+        paddleSpritePixels[y * PADDLE_W + x] = paddleMidShadow;
+      } else {
+        paddleSpritePixels[y * PADDLE_W + x] = paddleFace;
+      }
+    }
+  }
+
+  // Ball sprite
+  const uint16_t ballColor = FastILI9341::rgb565(255, 255, 255);
+  for (int y = 0; y < BALL_SPRITE_SIZE; ++y) {
+    for (int x = 0; x < BALL_SPRITE_SIZE; ++x) {
+      int dx = x - BALL_R;
+      int dy = y - BALL_R;
+      bool inside = (dx * dx + dy * dy) <= (BALL_R * BALL_R);
+      ballSpritePixels[y * BALL_SPRITE_SIZE + x] = inside ? ballColor : 0;
+    }
+  }
+}
+
+void ArkanoidGame::updateSpriteLayer() {
+  auto& paddleSprite = sprites.sprite(0);
+  paddleSprite.active = true;
+  paddleSprite.x = paddle.x;
+  paddleSprite.y = PADDLE_Y;
+  paddleSprite.w = PADDLE_W;
+  paddleSprite.h = PADDLE_H;
+  paddleSprite.pixels565 = paddleSpritePixels;
+  paddleSprite.transparent = 0;
+  paddleSprite.scale = SpriteLayer::ScaleX::Normal;
+
+  auto& ballSprite = sprites.sprite(1);
+  ballSprite.active = true;
+  ballSprite.x = ball.x - BALL_R;
+  ballSprite.y = ball.y - BALL_R;
+  ballSprite.w = BALL_SPRITE_SIZE;
+  ballSprite.h = BALL_SPRITE_SIZE;
+  ballSprite.pixels565 = ballSpritePixels;
+  ballSprite.transparent = 0;
+  ballSprite.scale = SpriteLayer::ScaleX::Normal;
 }
 
 void ArkanoidGame::rebuildBrickShades() {
@@ -198,6 +261,7 @@ void ArkanoidGame::resetGame() {
   ball.resetOnPaddle(paddle.x, PADDLE_W, PADDLE_Y, BALL_SPEED_SLOW, -BALL_SPEED_FAST);
   dirty.clear();
   dirty.add(0, 0, gfx.width() - 1, gfx.height() - 1);
+  updateSpriteLayer();
 }
 
 bool ArkanoidGame::insideBall(int x, int y) const {
@@ -248,15 +312,6 @@ uint16_t ArkanoidGame::bgAt(int x, int y) const {
     return hudColor ? hudColor : black;
   }
 
-  if (paddleRoundedBodyAt(x, y)) {
-    int lx = x - paddle.x;
-    int ly = y - PADDLE_Y;
-
-    if (ly == 0 || lx == 0) return paddleLight;
-    if (ly == PADDLE_H - 1 || lx == PADDLE_W - 1) return paddleDark;
-    if (ly == PADDLE_H - 2 || lx == PADDLE_W - 2) return paddleMidShadow;
-    return paddleFace;
-  }
   if (paddleShadowAt(x, y)) {
     return paddleShadow;
   }
@@ -288,17 +343,16 @@ uint16_t ArkanoidGame::bgAt(int x, int y) const {
 }
 
 void ArkanoidGame::renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* buf) {
-  const uint16_t ballc = FastILI9341::rgb565(255, 255, 255);
-
   for (int yy = 0; yy < h; yy++) {
     int y = y0 + yy;
     for (int xx = 0; xx < w; xx++) {
       int x = x0 + xx;
       uint16_t c = bgAt(x, y);
-      if (insideBall(x, y)) c = ballc;
       buf[yy * w + xx] = c;
     }
   }
+
+  sprites.renderRegion(x0, y0, w, h, buf);
 }
 
 void ArkanoidGame::flushDirty() {
@@ -382,6 +436,7 @@ void ArkanoidGame::onSetup() {
   rebuildBrickShades();
 
   resetGame();
+  updateSpriteLayer();
   flushDirty();
   gfx.fadeInBacklight(START_FADE_IN_MS);
 }
@@ -438,15 +493,15 @@ void ArkanoidGame::onPhysics(float frameDtSec) {
       resyncBallPos = true;
     }
 
-  if (ball.y + ball.r >= gfx.height()) {
-    lives--;
-    if (lives <= 0) {
-      enterGameOver();
-      return;
-    } else {
-      hud.update(lives, score, gfx.width());
-      hud.markDirty(gfx.width());
-      dirty.add(oldx - ball.r - 3, oldy - ball.r - 3, oldx + ball.r + 3, oldy + ball.r + 3);
+    if (ball.y + ball.r >= gfx.height()) {
+      lives--;
+      if (lives <= 0) {
+        enterGameOver();
+        return;
+      } else {
+        hud.update(lives, score, gfx.width());
+        hud.markDirty(gfx.width());
+        dirty.add(oldx - ball.r - 3, oldy - ball.r - 3, oldx + ball.r + 3, oldy + ball.r + 3);
         ball.resetOnPaddle(paddle.x, PADDLE_W, PADDLE_Y, BALL_SPEED_SLOW, -BALL_SPEED_FAST);
       }
       fell = true;
@@ -510,6 +565,8 @@ void ArkanoidGame::onPhysics(float frameDtSec) {
   if (ballMoved || fell) {
     dirty.add(ball.x - ball.r - 3, ball.y - ball.r - 3, ball.x + ball.r + 3, ball.y + ball.r + 3);
   }
+
+  updateSpriteLayer();
 }
 
 void ArkanoidGame::onProcess(float frameDtSec) {

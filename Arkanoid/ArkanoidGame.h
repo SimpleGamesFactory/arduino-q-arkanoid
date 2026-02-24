@@ -11,6 +11,7 @@
 #include "SGF/RectFlashAnim.h"
 #include "SGF/TileFlusher.h"
 #include "SGF/IRenderTarget.h"
+#include "SGF/Sprites.h"
 
 static constexpr uint32_t ARKANOID_FRAME_DEFAULT_STEP_US = 10000u;
 static constexpr uint32_t ARKANOID_FRAME_MAX_STEP_US = 30000u;
@@ -78,6 +79,9 @@ private:
   uint8_t pinFire = 0;
 
   uint16_t regionBuf[MAX_RW * MAX_RH]{};
+  uint16_t paddleSpritePixels[PADDLE_W * PADDLE_H]{};
+  static constexpr int BALL_SPRITE_SIZE = BALL_R * 2 + 1;
+  uint16_t ballSpritePixels[BALL_SPRITE_SIZE * BALL_SPRITE_SIZE]{};
 
   Paddle paddle{};
   int paddleSpeed = 5;
@@ -97,6 +101,7 @@ private:
   RectFlashAnim brickFlashAnim;
   Hud hud;
   TileFlusher flusher;
+  SpriteLayer sprites;
 
   void onSetup() override;
   void onPhysics(float dtSec) override;
@@ -134,4 +139,6 @@ private:
   void snapAngles();
   void updatePaddle(float dtSec);
   void applyPaddleBounceAngle();
+  void buildSprites();
+  void updateSpriteLayer();
 };
