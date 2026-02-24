@@ -29,7 +29,7 @@ ArkanoidGame::ArkanoidGame(
     titleScene(*this),
     playingScene(*this),
     gameOverScene(*this) {
-  paddle.setBounds(0, gfx.width() - paddle.w);
+  paddle.setBounds(0, gfx.width() - paddle.getSize().x);
   paddle.resetCentered(gfx.width());
 
   ball.resetSpeedControl();
@@ -91,7 +91,7 @@ bool ArkanoidGame::bricksRemaining() const {
 }
 
 void ArkanoidGame::resetGame() {
-  paddle.setBounds(0, gfx.width() - paddle.w);
+  paddle.setBounds(0, gfx.width() - paddle.getSize().x);
   paddle.velocityX = 0.0f;
   paddle.resetCentered(gfx.width());
   resetClock();

@@ -19,8 +19,10 @@ void PlayingScene::onPhysics(float delta) {
   auto& paddleSprite = game.sprites.sprite(0);
   auto& ballSprite = game.sprites.sprite(1);
   Paddle::Position paddlePos = game.paddle.getPosition();
+  Vector2 paddleSize = game.paddle.getSize();
   Paddle::MoveResult paddleMove = game.paddle.onPhysics(delta);
   paddlePos = game.paddle.getPosition();
+  paddleSize = game.paddle.getSize();
   if (paddleMove.moved) {
     int px0 = 0;
     int py0 = 0;
@@ -28,12 +30,12 @@ void PlayingScene::onPhysics(float delta) {
     int py1 = 0;
     SpriteLayer::Sprite oldPaddleSprite = paddleSprite;
     oldPaddleSprite.active = true;
-    oldPaddleSprite.setPosition(paddleMove.oldX, paddlePos.y);
+    oldPaddleSprite.setPosition(paddleMove.oldPosition.x, paddleMove.oldPosition.y);
     SpriteLayer::spriteBoundsPadded(oldPaddleSprite, 2, &px0, &py0, &px1, &py1);
     game.dirty.add(px0, py0, px1, py1);
     SpriteLayer::Sprite newPaddleSprite = paddleSprite;
     newPaddleSprite.active = true;
-    newPaddleSprite.setPosition(paddlePos.x, paddlePos.y);
+    newPaddleSprite.setPosition(paddleMove.newPosition.x, paddleMove.newPosition.y);
     SpriteLayer::spriteBoundsPadded(newPaddleSprite, 2, &px0, &py0, &px1, &py1);
     game.dirty.add(px0, py0, px1, py1);
   }
@@ -80,11 +82,11 @@ void PlayingScene::onPhysics(float delta) {
     ballPos = game.ball.getPosition();
     if (game.ball.dy > 0 &&
         ballPos.y + game.ball.r >= paddlePos.y &&
-        ballPos.y + game.ball.r <= paddlePos.y + game.paddle.h &&
+        ballPos.y + game.ball.r <= paddlePos.y + paddleSize.y &&
         ballPos.x >= paddlePos.x &&
-        ballPos.x <= paddlePos.x + game.paddle.w) {
+        ballPos.x <= paddlePos.x + paddleSize.x) {
       game.ball.setY(paddlePos.y - game.ball.r - 1);
-      game.ball.bounceFromPaddleHit(ballPos.x - paddlePos.x, game.paddle.w);
+      game.ball.bounceFromPaddleHit(ballPos.x - paddlePos.x, paddleSize.x);
       resyncBallPos = true;
     }
 

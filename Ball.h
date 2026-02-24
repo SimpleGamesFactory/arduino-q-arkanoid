@@ -2,16 +2,13 @@
 
 #include <stdint.h>
 
-#include "SGF/Sprites.h"
+#include "SGF/SpriteCharacter.h"
 
 class Paddle;
 
-class Ball {
+class Ball : public SpriteCharacter {
 public:
-  struct Position {
-    int x = 0;
-    int y = 0;
-  };
+  using Position = Vector2;
 
   static constexpr uint32_t DEFAULT_BASE_STEP_US = 10000;
   static constexpr int DEFAULT_RADIUS = 6;
@@ -39,10 +36,6 @@ public:
 
   void syncFixedFromInt();
   void setVelocity(int newDx, int newDy);
-  void setX(int newX);
-  void setY(int newY);
-  void setPosition(int newX, int newY);
-  Position getPosition() const { return Position{x, y}; }
   void resetSpeedControl();
   void attachToPaddle(const Paddle& paddle);
   void resetOnPaddle(const Paddle& paddle);
@@ -52,7 +45,6 @@ public:
   void bounceFromPaddleHit(int hitX, int paddleW);
   void snapAngles();
   void rebuildSprite();
-  void bindSprite(SpriteLayer::Sprite& sprite);
 
   int speedSlow() const {
     return speedSlow_;
@@ -74,15 +66,13 @@ public:
   }
 
 private:
-  int x = 0;
-  int y = 0;
   const int speedSlow_;
   const int speedFast_;
   const int posFpOne_;
-  SpriteLayer::Sprite* sprite = nullptr;
   uint16_t spritePixels[MAX_SPRITE_SIZE * MAX_SPRITE_SIZE]{};
 
   int defaultLaunchDx() const;
   int defaultLaunchDy() const;
   int spriteSize() const;
+  void configureBoundSprite(SpriteLayer::Sprite& sprite) override;
 };

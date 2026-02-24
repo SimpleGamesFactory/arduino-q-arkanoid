@@ -17,5 +17,6 @@ Minimal C++/Arduino guidelines for this repo:
 - If a class already satisfies a project interface (e.g. `IRenderTarget`), implement that interface directly instead of creating local adapter structs just to forward the same methods.
 - Prefer effect names over vague state names in APIs (`invalidate(...)` over ambiguous names like `setFull(...)` when the method clears and marks redraw state).
 - Mutable object state should be private by default (especially position/state fields like `x/y`); expose behavior methods and explicit accessors (e.g. `getPosition()`) instead of public field writes.
+- Reuse common math/value types (e.g. `Vector2` for 2D position/size) instead of duplicating one-off `Position`/`Size` structs across classes.
 - If object state change has invariants/side effects (e.g. syncing a bound sprite), the state must be changed through the object API (`setPosition`, `setX`, etc.), not by external direct field mutation.
 - Do not add central "sync all objects" sweeps to compensate for leaked state mutation. Update dependent state at the point where the owning object state changes.

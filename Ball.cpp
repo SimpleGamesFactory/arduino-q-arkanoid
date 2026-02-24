@@ -7,42 +7,19 @@
 
 Ball::Ball(int radius, int speedSlow, int speedFast, int posFpOne)
   : r(radius), speedSlow_(speedSlow), speedFast_(speedFast), posFpOne_(posFpOne) {
+  setSize(spriteSize(), spriteSize());
   rebuildSprite();
 }
 
 void Ball::syncFixedFromInt() {
-  fx = static_cast<float>(x);
-  fy = static_cast<float>(y);
+  Position pos = getPosition();
+  fx = static_cast<float>(pos.x);
+  fy = static_cast<float>(pos.y);
 }
 
 void Ball::setVelocity(int newDx, int newDy) {
   dx = newDx;
   dy = newDy;
-}
-
-void Ball::setX(int newX) {
-  x = newX;
-  if (sprite) {
-    sprite->active = true;
-    sprite->setPosition(x, y);
-  }
-}
-
-void Ball::setY(int newY) {
-  y = newY;
-  if (sprite) {
-    sprite->active = true;
-    sprite->setPosition(x, y);
-  }
-}
-
-void Ball::setPosition(int newX, int newY) {
-  x = newX;
-  y = newY;
-  if (sprite) {
-    sprite->active = true;
-    sprite->setPosition(x, y);
-  }
 }
 
 void Ball::resetSpeedControl() {
@@ -52,7 +29,8 @@ void Ball::resetSpeedControl() {
 
 void Ball::attachToPaddle(const Paddle& paddle) {
   Paddle::Position paddlePos = paddle.getPosition();
-  setPosition(paddlePos.x + paddle.w / 2, paddlePos.y - r - 1);
+  Vector2 paddleSize = paddle.getSize();
+  setPosition(paddlePos.x + paddleSize.x / 2, paddlePos.y - r - 1);
   syncFixedFromInt();
 }
 
@@ -167,6 +145,7 @@ int Ball::defaultLaunchDy() const {
 void Ball::rebuildSprite() {
   const uint16_t ballColor = Color565::rgb(255, 255, 255);
   int size = spriteSize();
+  setSize(size, size);
   for (int py = 0; py < size; ++py) {
     for (int px = 0; px < size; ++px) {
       int ddx = px - r;
@@ -177,15 +156,12 @@ void Ball::rebuildSprite() {
   }
 }
 
-void Ball::bindSprite(SpriteLayer::Sprite& spriteRef) {
-  sprite = &spriteRef;
-  int size = spriteSize();
-  sprite->w = size;
-  sprite->h = size;
-  sprite->pixels565 = spritePixels;
-  sprite->transparent = 0;
-  sprite->scale = spriteScale;
-  sprite->setAnchor(0.5f, 0.5f);
-  sprite->active = true;
-  sprite->setPosition(x, y);
+void Ball::configureBoundSprite(SpriteLayer::Sprite& sprite) {
+  Vector2 size = getSize();
+  sprite.w = size.x;
+  sprite.h = size.y;
+  sprite.pixels565 = spritePixels;
+  sprite.transparent = 0;
+  sprite.scale = spriteScale;
+  sprite.setAnchor(0.5f, 0.5f);
 }
