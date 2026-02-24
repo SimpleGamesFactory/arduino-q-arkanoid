@@ -1,5 +1,5 @@
-#include "SGF/FastILI9341.h"
-#include "Arkanoid/ArkanoidGame.h"
+#include "SGF.h"
+#include "ArkanoidGame.h"
 
 #define TFT_CS 10
 #define TFT_DC 9

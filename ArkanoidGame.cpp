@@ -358,6 +358,7 @@ void ArkanoidGame::renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* 
 void ArkanoidGame::flushDirty() {
   struct IliTarget : public IRenderTarget {
     FastILI9341& t;
+    explicit IliTarget(FastILI9341& target) : t(target) {}
     int width() const override { return t.width(); }
     int height() const override { return t.height(); }
     void blit565(int x0, int y0, int w, int h, const uint16_t* pix) override {
