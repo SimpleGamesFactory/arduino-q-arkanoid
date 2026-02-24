@@ -6,6 +6,7 @@ SGF is a lightweight C++ support library for small embedded games. It provides t
 - **Game**: Base loop with an internal frame clock. Exposes `start()`, `loop()`, and `resetClock()`. Derive from it and implement `onSetup()`, `onPhysics(float dtSec)`, and `onProcess(float dtSec)` to integrate your game logic and rendering.
 - **IRenderTarget**: Minimal interface for render targets (`width()`, `height()`, `blit565(...)`) to decouple flushing from concrete display drivers.
 - **TileFlusher**: Tile-based dirty-rect flusher. Takes `DirtyRects`, an `IRenderTarget`, and a tile render callback to repaint only modified regions in bounded tiles.
+- **Sprites**: Software sprite layer with fixed slots (sprites + missiles), transparent key, and simple horizontal scaling modes; intended to be composed over a background buffer.
 - **DirtyRects**: Simple registry of rectangles to refresh, with clip/merge helpers to reduce overdraw.
 - **Collision**: Collision helpers, including circle-rectangle intersection.
 - **FastILI9341**: Display driver for ILI9341 (blitting, backlight control, rotation) plus color helpers (`rgb565`, `lighten565`, `darken565`).
