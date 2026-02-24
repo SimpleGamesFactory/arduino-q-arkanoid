@@ -6,6 +6,11 @@
 
 class Paddle {
 public:
+  struct Position {
+    int x = 0;
+    int y = 0;
+  };
+
   struct MoveResult {
     int oldX = 0;
     int newX = 0;
@@ -17,8 +22,6 @@ public:
   static constexpr int DEFAULT_Y = 220;
   static constexpr float DEFAULT_SPEED_PX_PER_SEC = 500.0f;
 
-  int x = 0;
-  int y = DEFAULT_Y;
   int w = DEFAULT_W;
   int h = DEFAULT_H;
   float xf = 0.0f;
@@ -30,16 +33,21 @@ public:
 
   Paddle();
 
+  void setX(int newX);
+  void setPosition(int newX, int newY);
+  Position getPosition() const { return Position{x, y}; }
   void resetCentered(int screenW);
   void setBounds(int newMinX, int newMaxX);
   MoveResult onPhysics(float delta);
   void rebuildSprite();
-  void bindSprite(SpriteLayer::Sprite& sprite) const;
-  void updateSprite(SpriteLayer::Sprite& sprite) const;
+  void bindSprite(SpriteLayer::Sprite& sprite);
   bool roundedBodyAt(int px, int py) const;
   bool shadowAt(int px, int py) const;
 
 private:
+  int x = 0;
+  int y = DEFAULT_Y;
+  SpriteLayer::Sprite* sprite = nullptr;
   uint16_t spritePixels[DEFAULT_W * DEFAULT_H]{};
 
   void buildSprite565(uint16_t* pixels) const;

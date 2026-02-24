@@ -8,6 +8,11 @@ class Paddle;
 
 class Ball {
 public:
+  struct Position {
+    int x = 0;
+    int y = 0;
+  };
+
   static constexpr uint32_t DEFAULT_BASE_STEP_US = 10000;
   static constexpr int DEFAULT_RADIUS = 6;
   static constexpr int DEFAULT_SPEED_SLOW = 1;
@@ -21,8 +26,6 @@ public:
   Ball() : Ball(DEFAULT_RADIUS, DEFAULT_SPEED_SLOW, DEFAULT_SPEED_FAST, DEFAULT_POS_FP_ONE) {}
   Ball(int radius, int speedSlow, int speedFast, int posFpOne);
 
-  int x = 0;
-  int y = 0;
   int dx = 0;
   int dy = 0;
   int r = 0;
@@ -36,6 +39,10 @@ public:
 
   void syncFixedFromInt();
   void setVelocity(int newDx, int newDy);
+  void setX(int newX);
+  void setY(int newY);
+  void setPosition(int newX, int newY);
+  Position getPosition() const { return Position{x, y}; }
   void resetSpeedControl();
   void attachToPaddle(const Paddle& paddle);
   void resetOnPaddle(const Paddle& paddle);
@@ -45,8 +52,7 @@ public:
   void bounceFromPaddleHit(int hitX, int paddleW);
   void snapAngles();
   void rebuildSprite();
-  void bindSprite(SpriteLayer::Sprite& sprite) const;
-  void updateSprite(SpriteLayer::Sprite& sprite) const;
+  void bindSprite(SpriteLayer::Sprite& sprite);
 
   int speedSlow() const {
     return speedSlow_;
@@ -68,9 +74,12 @@ public:
   }
 
 private:
+  int x = 0;
+  int y = 0;
   const int speedSlow_;
   const int speedFast_;
   const int posFpOne_;
+  SpriteLayer::Sprite* sprite = nullptr;
   uint16_t spritePixels[MAX_SPRITE_SIZE * MAX_SPRITE_SIZE]{};
 
   int defaultLaunchDx() const;

@@ -16,3 +16,6 @@ Minimal C++/Arduino guidelines for this repo:
 - Keep naming consistent across engine/game lifecycle methods (`onPhysics`, `onProcess`, `delta`) and avoid parallel synonyms for the same concept.
 - If a class already satisfies a project interface (e.g. `IRenderTarget`), implement that interface directly instead of creating local adapter structs just to forward the same methods.
 - Prefer effect names over vague state names in APIs (`invalidate(...)` over ambiguous names like `setFull(...)` when the method clears and marks redraw state).
+- Mutable object state should be private by default (especially position/state fields like `x/y`); expose behavior methods and explicit accessors (e.g. `getPosition()`) instead of public field writes.
+- If object state change has invariants/side effects (e.g. syncing a bound sprite), the state must be changed through the object API (`setPosition`, `setX`, etc.), not by external direct field mutation.
+- Do not add central "sync all objects" sweeps to compensate for leaked state mutation. Update dependent state at the point where the owning object state changes.

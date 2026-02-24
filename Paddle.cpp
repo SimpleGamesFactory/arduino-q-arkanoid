@@ -5,9 +5,27 @@ Paddle::Paddle() {
   rebuildSprite();
 }
 
-void Paddle::resetCentered(int screenW) {
-  x = (screenW - w) / 2;
+void Paddle::setX(int newX) {
+  x = newX;
   xf = static_cast<float>(x);
+  if (sprite) {
+    sprite->active = true;
+    sprite->setPosition(x, y);
+  }
+}
+
+void Paddle::setPosition(int newX, int newY) {
+  x = newX;
+  y = newY;
+  xf = static_cast<float>(x);
+  if (sprite) {
+    sprite->active = true;
+    sprite->setPosition(x, y);
+  }
+}
+
+void Paddle::resetCentered(int screenW) {
+  setX((screenW - w) / 2);
 }
 
 void Paddle::setBounds(int newMinX, int newMaxX) {
@@ -17,12 +35,11 @@ void Paddle::setBounds(int newMinX, int newMaxX) {
     maxX = minX;
   }
   if (x < minX) {
-    x = minX;
+    setX(minX);
   }
   if (x > maxX) {
-    x = maxX;
+    setX(maxX);
   }
-  xf = static_cast<float>(x);
 }
 
 Paddle::MoveResult Paddle::onPhysics(float delta) {
@@ -41,6 +58,10 @@ Paddle::MoveResult Paddle::onPhysics(float delta) {
   }
 
   x = static_cast<int>(xf + 0.5f);
+  if (sprite) {
+    sprite->active = true;
+    sprite->setPosition(x, y);
+  }
   result.newX = x;
   result.moved = (x != result.oldX);
   return result;
@@ -50,19 +71,16 @@ void Paddle::rebuildSprite() {
   buildSprite565(spritePixels);
 }
 
-void Paddle::bindSprite(SpriteLayer::Sprite& sprite) const {
-  sprite.w = w;
-  sprite.h = h;
-  sprite.pixels565 = spritePixels;
-  sprite.transparent = 0;
-  sprite.scale = spriteScale;
-  sprite.setAnchor(0.0f, 0.0f);
-  updateSprite(sprite);
-}
-
-void Paddle::updateSprite(SpriteLayer::Sprite& sprite) const {
-  sprite.active = true;
-  sprite.setPosition(x, y);
+void Paddle::bindSprite(SpriteLayer::Sprite& spriteRef) {
+  sprite = &spriteRef;
+  sprite->w = w;
+  sprite->h = h;
+  sprite->pixels565 = spritePixels;
+  sprite->transparent = 0;
+  sprite->scale = spriteScale;
+  sprite->setAnchor(0.0f, 0.0f);
+  sprite->active = true;
+  sprite->setPosition(x, y);
 }
 
 void Paddle::buildSprite565(uint16_t* pixels) const {

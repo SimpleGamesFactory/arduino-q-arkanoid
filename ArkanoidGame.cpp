@@ -30,8 +30,7 @@ ArkanoidGame::ArkanoidGame(
     playingScene(*this),
     gameOverScene(*this) {
   paddle.setBounds(0, gfx.width() - paddle.w);
-  paddle.x = (gfx.width() - paddle.w) / 2;
-  paddle.xf = (float)paddle.x;
+  paddle.resetCentered(gfx.width());
 
   ball.resetSpeedControl();
   ball.resetOnPaddle(paddle);
@@ -109,8 +108,6 @@ void ArkanoidGame::resetGame() {
   clearBrickFlashes();
   ball.resetOnPaddle(paddle);
   invalidateScreen();
-  paddle.updateSprite(sprites.sprite(0));
-  ball.updateSprite(sprites.sprite(1));
 }
 
 void ArkanoidGame::invalidateScreen() {

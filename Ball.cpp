@@ -20,14 +20,39 @@ void Ball::setVelocity(int newDx, int newDy) {
   dy = newDy;
 }
 
+void Ball::setX(int newX) {
+  x = newX;
+  if (sprite) {
+    sprite->active = true;
+    sprite->setPosition(x, y);
+  }
+}
+
+void Ball::setY(int newY) {
+  y = newY;
+  if (sprite) {
+    sprite->active = true;
+    sprite->setPosition(x, y);
+  }
+}
+
+void Ball::setPosition(int newX, int newY) {
+  x = newX;
+  y = newY;
+  if (sprite) {
+    sprite->active = true;
+    sprite->setPosition(x, y);
+  }
+}
+
 void Ball::resetSpeedControl() {
   speedScaleQ = defaultSpeedScaleQ();
   speedPotFiltQ = -1;
 }
 
 void Ball::attachToPaddle(const Paddle& paddle) {
-  x = paddle.x + paddle.w / 2;
-  y = paddle.y - r - 1;
+  Paddle::Position paddlePos = paddle.getPosition();
+  setPosition(paddlePos.x + paddle.w / 2, paddlePos.y - r - 1);
   syncFixedFromInt();
 }
 
@@ -61,8 +86,7 @@ void Ball::onPhysics(float delta) {
     (speedPxPerStep / static_cast<float>(speedFast_)) * (delta * (1000000.0f / static_cast<float>(baseStepUs)));
   fx += static_cast<float>(dx) * stepScale;
   fy += static_cast<float>(dy) * stepScale;
-  x = static_cast<int>(fx + 0.5f);
-  y = static_cast<int>(fy + 0.5f);
+  setPosition(static_cast<int>(fx + 0.5f), static_cast<int>(fy + 0.5f));
 }
 
 void Ball::bounceFromPaddleHit(int hitX, int paddleW) {
@@ -153,18 +177,15 @@ void Ball::rebuildSprite() {
   }
 }
 
-void Ball::bindSprite(SpriteLayer::Sprite& sprite) const {
+void Ball::bindSprite(SpriteLayer::Sprite& spriteRef) {
+  sprite = &spriteRef;
   int size = spriteSize();
-  sprite.w = size;
-  sprite.h = size;
-  sprite.pixels565 = spritePixels;
-  sprite.transparent = 0;
-  sprite.scale = spriteScale;
-  sprite.setAnchor(0.5f, 0.5f);
-  updateSprite(sprite);
-}
-
-void Ball::updateSprite(SpriteLayer::Sprite& sprite) const {
-  sprite.active = true;
-  sprite.setPosition(x, y);
+  sprite->w = size;
+  sprite->h = size;
+  sprite->pixels565 = spritePixels;
+  sprite->transparent = 0;
+  sprite->scale = spriteScale;
+  sprite->setAnchor(0.5f, 0.5f);
+  sprite->active = true;
+  sprite->setPosition(x, y);
 }
