@@ -1,6 +1,10 @@
 #include "Paddle.h"
 #include "SGF/Color565.h"
 
+Paddle::Paddle() {
+  rebuildSprite();
+}
+
 void Paddle::resetCentered(int screenW) {
   x = (screenW - w) / 2;
   xf = static_cast<float>(x);
@@ -40,6 +44,25 @@ Paddle::MoveResult Paddle::onPhysics(float delta) {
   result.newX = x;
   result.moved = (x != result.oldX);
   return result;
+}
+
+void Paddle::rebuildSprite() {
+  buildSprite565(spritePixels);
+}
+
+void Paddle::bindSprite(SpriteLayer::Sprite& sprite) const {
+  sprite.w = w;
+  sprite.h = h;
+  sprite.pixels565 = spritePixels;
+  sprite.transparent = 0;
+  sprite.scale = spriteScale;
+  sprite.setAnchor(0.0f, 0.0f);
+  updateSprite(sprite);
+}
+
+void Paddle::updateSprite(SpriteLayer::Sprite& sprite) const {
+  sprite.active = true;
+  sprite.setPosition(x, y);
 }
 
 void Paddle::buildSprite565(uint16_t* pixels) const {

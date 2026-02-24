@@ -54,44 +54,8 @@ ArkanoidGame::ArkanoidGame(
   ball.y = paddle.y - ball.r - 1;
   ball.syncFixedFromInt();
 
-  buildSprites();
-}
-
-void ArkanoidGame::buildSprites() {
-  paddle.buildSprite565(paddleSpritePixels);
-
-  // Ball sprite
-  const uint16_t ballColor = Color565::rgb(255, 255, 255);
-  for (int y = 0; y < BALL_SPRITE_SIZE; ++y) {
-    for (int x = 0; x < BALL_SPRITE_SIZE; ++x) {
-      int dx = x - BALL_R;
-      int dy = y - BALL_R;
-      bool inside = (dx * dx + dy * dy) <= (BALL_R * BALL_R);
-      ballSpritePixels[y * BALL_SPRITE_SIZE + x] = inside ? ballColor : 0;
-    }
-  }
-}
-
-void ArkanoidGame::updateSpriteLayer() {
-  auto& paddleSprite = sprites.sprite(0);
-  paddleSprite.active = true;
-  paddleSprite.x = paddle.x;
-  paddleSprite.y = paddle.y;
-  paddleSprite.w = paddle.w;
-  paddleSprite.h = paddle.h;
-  paddleSprite.pixels565 = paddleSpritePixels;
-  paddleSprite.transparent = 0;
-  paddleSprite.scale = SpriteLayer::ScaleX::Normal;
-
-  auto& ballSprite = sprites.sprite(1);
-  ballSprite.active = true;
-  ballSprite.x = ball.x - BALL_R;
-  ballSprite.y = ball.y - BALL_R;
-  ballSprite.w = BALL_SPRITE_SIZE;
-  ballSprite.h = BALL_SPRITE_SIZE;
-  ballSprite.pixels565 = ballSpritePixels;
-  ballSprite.transparent = 0;
-  ballSprite.scale = SpriteLayer::ScaleX::Normal;
+  paddle.bindSprite(sprites.sprite(0));
+  ball.bindSprite(sprites.sprite(1));
 }
 
 void ArkanoidGame::rebuildBrickShades() {
@@ -212,7 +176,8 @@ void ArkanoidGame::resetGame() {
   ball.resetOnPaddle(paddle.x, paddle.w, paddle.y, BALL_SPEED_SLOW, -BALL_SPEED_FAST);
   dirty.clear();
   dirty.add(0, 0, gfx.width() - 1, gfx.height() - 1);
-  updateSpriteLayer();
+  paddle.updateSprite(sprites.sprite(0));
+  ball.updateSprite(sprites.sprite(1));
 }
 
 uint16_t ArkanoidGame::bgAt(int x, int y) const {

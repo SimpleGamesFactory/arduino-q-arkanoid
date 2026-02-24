@@ -26,20 +26,21 @@ void PlayingScene::onPhysics(float delta) {
     dir++;
   }
   game.paddle.velocityX = static_cast<float>(dir) * game.paddle.speedPxPerSec;
+  auto& paddleSprite = game.sprites.sprite(0);
+  auto& ballSprite = game.sprites.sprite(1);
   Paddle::MoveResult paddleMove = game.paddle.onPhysics(delta);
   if (paddleMove.moved) {
-    game.dirty.add(
-      paddleMove.oldX - 2,
-      game.paddle.y - 2,
-      paddleMove.oldX + game.paddle.w + 2,
-      game.paddle.y + game.paddle.h + 2
-    );
-    game.dirty.add(
-      game.paddle.x - 2,
-      game.paddle.y - 2,
-      game.paddle.x + game.paddle.w + 2,
-      game.paddle.y + game.paddle.h + 2
-    );
+    int px0 = 0;
+    int py0 = 0;
+    int px1 = 0;
+    int py1 = 0;
+    int savedPaddleX = paddleSprite.x;
+    paddleSprite.x = paddleMove.oldX;
+    SpriteLayer::spriteBoundsPadded(paddleSprite, 2, &px0, &py0, &px1, &py1);
+    game.dirty.add(px0, py0, px1, py1);
+    paddleSprite.x = savedPaddleX;
+    SpriteLayer::spriteBoundsPadded(paddleSprite, 2, &px0, &py0, &px1, &py1);
+    game.dirty.add(px0, py0, px1, py1);
   }
   game.markBrickFlashesDirty();
   int oldx = game.ball.x;
@@ -173,25 +174,26 @@ void PlayingScene::onPhysics(float delta) {
   }
 
   bool ballMoved = (game.ball.x != oldx) || (game.ball.y != oldy);
+  int bx0 = 0;
+  int by0 = 0;
+  int bx1 = 0;
+  int by1 = 0;
 
   if (!fell && ballMoved) {
-    game.dirty.add(
-      oldx - game.ball.r - 3,
-      oldy - game.ball.r - 3,
-      oldx + game.ball.r + 3,
-      oldy + game.ball.r + 3
-    );
+    SpriteLayer::Sprite oldBallSprite = ballSprite;
+    oldBallSprite.active = true;
+    oldBallSprite.setPosition(oldx, oldy);
+    SpriteLayer::spriteBoundsPadded(oldBallSprite, 3, &bx0, &by0, &bx1, &by1);
+    game.dirty.add(bx0, by0, bx1, by1);
   }
   if (ballMoved || fell) {
-    game.dirty.add(
-      game.ball.x - game.ball.r - 3,
-      game.ball.y - game.ball.r - 3,
-      game.ball.x + game.ball.r + 3,
-      game.ball.y + game.ball.r + 3
-    );
+    game.ball.updateSprite(ballSprite);
+    SpriteLayer::spriteBoundsPadded(ballSprite, 3, &bx0, &by0, &bx1, &by1);
+    game.dirty.add(bx0, by0, bx1, by1);
   }
 
-  game.updateSpriteLayer();
+  game.paddle.updateSprite(paddleSprite);
+  game.ball.updateSprite(ballSprite);
 }
 
 void PlayingScene::onProcess(float delta) {

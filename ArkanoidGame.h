@@ -86,9 +86,6 @@ private:
   uint8_t pinBallSpeedPot = 0;
 
   uint16_t regionBuf[MAX_RW * MAX_RH]{};
-  uint16_t paddleSpritePixels[Paddle::DEFAULT_W * Paddle::DEFAULT_H]{};
-  static constexpr int BALL_SPRITE_SIZE = BALL_R * 2 + 1;
-  uint16_t ballSpritePixels[BALL_SPRITE_SIZE * BALL_SPRITE_SIZE]{};
 
   Paddle paddle{};
   int lives = START_LIVES;
@@ -142,6 +139,4 @@ private:
   uint16_t bgAt(int x, int y) const;
   void renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* buf);
   void flushDirty();
-  void buildSprites();
-  void updateSpriteLayer();
 };
