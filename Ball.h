@@ -56,7 +56,7 @@ public:
     return posFpOne_;
   }
   int32_t defaultSpeedScaleQ() const {
-    return static_cast<int32_t>(speedFast_) * static_cast<int32_t>(posFpOne_);
+    return (static_cast<int32_t>(speedFast_) * static_cast<int32_t>(posFpOne_) * 5) / 6;
   }
   int32_t speedPotMinQ() const {
     return posFpOne_ / 2;

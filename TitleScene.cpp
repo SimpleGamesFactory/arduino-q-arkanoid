@@ -20,7 +20,7 @@ void TitleScene::onEnter() {
   game.fillRect(16, game.screenHeight() - 20, game.screenWidth() - 32, 4, accent);
 
   game.drawCenteredText(58, "ARDUNOID", 5, accent);
-  game.drawCenteredText(116, "ARKANOID FOR UNO Q", 2, textc);
+  game.drawCenteredText(116, "ARKANOID FOR UC", 2, textc);
   game.drawCenteredText(190, "PRESS FIRE", 2, textc);
 }
 
