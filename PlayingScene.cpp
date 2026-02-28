@@ -90,11 +90,8 @@ void PlayingScene::onPhysics(float delta) {
     if (ballPos.y + game.ball.r >= game.screenHeight()) {
       game.lives--;
       if (game.lives <= 0) {
-        game.fadeOutBacklight(game.GAMEOVER_FADE_OUT_MS);
         game.gameOverScore = game.score;
-        game.sceneSwitcher.switchTo(game.gameOverScene);
-        game.fadeInBacklight(game.GAMEOVER_FADE_IN_MS);
-        game.resetClock();
+        game.transitionToGameOver();
         return;
       } else {
         game.hud.update(game.lives, game.score, game.screenWidth());

@@ -136,6 +136,31 @@ void ArkanoidGame::updateBallSpeedControl() {
   );
 }
 
+void ArkanoidGame::transitionFromTitleToPlaying() {
+  fadeOutBacklight(TITLE_EXIT_FADE_OUT_MS);
+  resetGame();
+  flushDirty();
+  sceneSwitcher.switchTo(playingScene);
+  fadeInBacklight(TITLE_EXIT_FADE_IN_MS);
+  resetClock();
+}
+
+void ArkanoidGame::transitionToGameOver() {
+  fadeOutBacklight(GAMEOVER_FADE_OUT_MS);
+  sceneSwitcher.switchTo(gameOverScene);
+  fadeInBacklight(GAMEOVER_FADE_IN_MS);
+  resetClock();
+}
+
+void ArkanoidGame::transitionFromGameOverToPlaying() {
+  fadeOutBacklight(GAMEOVER_EXIT_FADE_OUT_MS);
+  resetGame();
+  flushDirty();
+  sceneSwitcher.switchTo(playingScene);
+  fadeInBacklight(GAMEOVER_EXIT_FADE_IN_MS);
+  resetClock();
+}
+
 uint16_t ArkanoidGame::bgAt(int x, int y) const {
   const uint16_t black = Color565::rgb(0, 0, 0);
   const uint16_t paddleShadow = Color565::rgb(28, 32, 38);

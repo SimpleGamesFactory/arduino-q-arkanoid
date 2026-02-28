@@ -67,6 +67,8 @@ private:
   static constexpr int BRICK_FLASH_SLOTS = 40;
   static constexpr uint32_t BRICK_FLASH_TOTAL_US = 50000;
   static constexpr uint16_t START_FADE_IN_MS = 220;
+  static constexpr uint16_t TITLE_EXIT_FADE_OUT_MS = 140;
+  static constexpr uint16_t TITLE_EXIT_FADE_IN_MS = 180;
   static constexpr uint16_t GAMEOVER_FADE_OUT_MS = 140;
   static constexpr uint16_t GAMEOVER_FADE_IN_MS = 180;
   static constexpr uint16_t GAMEOVER_EXIT_FADE_OUT_MS = 140;
@@ -131,6 +133,9 @@ private:
   void resetGame();
   void invalidateScreen();
   void updateBallSpeedControl();
+  void transitionFromTitleToPlaying();
+  void transitionToGameOver();
+  void transitionFromGameOverToPlaying();
 
   uint16_t bgAt(int x, int y) const;
   void renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* buf);

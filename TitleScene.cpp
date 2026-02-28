@@ -27,10 +27,7 @@ void TitleScene::onEnter() {
 void TitleScene::onPhysics(float delta) {
   (void)delta;
   if (game.fireConfirmAction.update(game.fireAction)) {
-    game.resetGame();
-    game.flushDirty();
-    game.sceneSwitcher.switchTo(game.playingScene);
-    game.resetClock();
+    game.transitionFromTitleToPlaying();
   }
 }
 

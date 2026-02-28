@@ -30,12 +30,7 @@ void GameOverScene::onEnter() {
 void GameOverScene::onPhysics(float delta) {
   (void)delta;
   if (game.fireConfirmAction.update(game.fireAction)) {
-    game.fadeOutBacklight(game.GAMEOVER_EXIT_FADE_OUT_MS);
-    game.resetGame();
-    game.flushDirty();
-    game.sceneSwitcher.switchTo(game.playingScene);
-    game.fadeInBacklight(game.GAMEOVER_EXIT_FADE_IN_MS);
-    game.resetClock();
+    game.transitionFromGameOverToPlaying();
   }
 }
 

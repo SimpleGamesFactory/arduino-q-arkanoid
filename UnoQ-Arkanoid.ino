@@ -22,9 +22,9 @@ ArkanoidGame arkanoid(
   ARKANOID_BALL_SPEED_POT_PIN);
 
 void setup() {
+  hardware.display.setBacklight(0);
   hardware.display.begin(hardware.profile.display.spiHz);
   hardware.display.setRotation(hardware.profile.display.rotation);
-  hardware.display.setBacklight(0);
   arkanoid.setup();
 }
 
