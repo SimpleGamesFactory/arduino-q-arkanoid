@@ -5,16 +5,17 @@
 #include "Ball.h"
 #include "GameOverScene.h"
 #include "PlayingScene.h"
-#include "SGF/DirtyRects.h"
-#include "SGF/FastILI9341.h"
 #include "SGF/Actions.h"
+#include "SGF/DirtyRects.h"
 #include "SGF/Game.h"
+#include "SGF/HardwareProfile.h"
+#include "SGF/IRenderTarget.h"
+#include "SGF/IScreen.h"
 #include "SGF/Scene.h"
 #include "Hud.h"
 #include "Paddle.h"
 #include "SGF/RectFlashAnim.h"
 #include "SGF/TileFlusher.h"
-#include "SGF/IRenderTarget.h"
 #include "SGF/Sprites.h"
 #include "TitleScene.h"
 
@@ -24,20 +25,30 @@ static constexpr uint32_t ARKANOID_FRAME_MAX_STEP_US = 30000u;
 class ArkanoidGame : public Game {
 public:
   ArkanoidGame(
-    FastILI9341& gfx,
-    uint8_t leftPin,
-    uint8_t rightPin,
-    uint8_t firePin,
+    IRenderTarget& renderTarget,
+    IScreen& screen,
+    const SGFHardware::HardwareProfile& hardwareProfile,
     uint8_t ballSpeedPotPin
   );
 
   void setup();
+  int screenWidth() const { return renderTarget.width(); }
+  int screenHeight() const { return renderTarget.height(); }
+  void fillScreen(uint16_t color565) { screen.fillScreen565(color565); }
+  void fillRect(int x0, int y0, int w, int h, uint16_t color565) {
+    screen.fillRect565(x0, y0, w, h, color565);
+  }
+  void drawCenteredText(int y, const char* text, int scale, uint16_t color565);
+  void fadeBacklightTo(uint8_t targetLevel, uint16_t durationMs);
+  void fadeInBacklight(uint16_t durationMs) {
+    fadeBacklightTo(hardwareProfile.display.backlightLevel, durationMs);
+  }
+  void fadeOutBacklight(uint16_t durationMs) {
+    fadeBacklightTo(0, durationMs);
+  }
 
 private:
-  static constexpr uint32_t DEFAULT_SPI_HZ = 24000000u;
-  static constexpr FastILI9341::ScreenRotation DEFAULT_ROTATION = FastILI9341::ScreenRotation::Landscape;
-  static constexpr uint32_t BACKLIGHT_PWM_MAX = 4095u;
-  static constexpr uint8_t BACKLIGHT_START = 0;
+  static constexpr uint8_t BALL_SPEED_CONTROL_DISABLED_PIN = 0xFF;
 
   // Render region parameters
   static constexpr int MAX_RW = 120;
@@ -61,7 +72,9 @@ private:
   static constexpr uint16_t GAMEOVER_EXIT_FADE_OUT_MS = 140;
   static constexpr uint16_t GAMEOVER_EXIT_FADE_IN_MS = 180;
 
-  FastILI9341& gfx;
+  IRenderTarget& renderTarget;
+  IScreen& screen;
+  SGFHardware::HardwareProfile hardwareProfile;
   DirtyRects dirty;
 
   uint8_t pinLeft = 0;
@@ -117,6 +130,7 @@ private:
 
   void resetGame();
   void invalidateScreen();
+  void updateBallSpeedControl();
 
   uint16_t bgAt(int x, int y) const;
   void renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* buf);

@@ -17,24 +17,24 @@ void GameOverScene::onEnter() {
   snprintf(scoreBuf, sizeof(scoreBuf), "%lu", (unsigned long)game.gameOverScore);
   game.fireConfirmAction.reset();
   game.dirty.clear();
-  game.gfx.fillScreen565(bg);
-  game.gfx.fillRect565(24, 20, game.gfx.width() - 48, 4, accent);
-  game.gfx.fillRect565(24, game.gfx.height() - 20, game.gfx.width() - 48, 4, accent);
+  game.fillScreen(bg);
+  game.fillRect(24, 20, game.screenWidth() - 48, 4, accent);
+  game.fillRect(24, game.screenHeight() - 20, game.screenWidth() - 48, 4, accent);
 
-  game.gfx.drawCenteredText(44, "GAME OVER", 4, accent);
-  game.gfx.drawCenteredText(96, "SCORE", 3, textc);
-  game.gfx.drawCenteredText(128, scoreBuf, 6, scorec);
-  game.gfx.drawCenteredText(190, "PRESS FIRE", 2, textc);
+  game.drawCenteredText(44, "GAME OVER", 4, accent);
+  game.drawCenteredText(96, "SCORE", 3, textc);
+  game.drawCenteredText(128, scoreBuf, 6, scorec);
+  game.drawCenteredText(190, "PRESS FIRE", 2, textc);
 }
 
 void GameOverScene::onPhysics(float delta) {
   (void)delta;
   if (game.fireConfirmAction.update(game.fireAction)) {
-    game.gfx.fadeOutBacklight(game.GAMEOVER_EXIT_FADE_OUT_MS);
+    game.fadeOutBacklight(game.GAMEOVER_EXIT_FADE_OUT_MS);
     game.resetGame();
     game.flushDirty();
     game.sceneSwitcher.switchTo(game.playingScene);
-    game.gfx.fadeInBacklight(game.GAMEOVER_EXIT_FADE_IN_MS);
+    game.fadeInBacklight(game.GAMEOVER_EXIT_FADE_IN_MS);
     game.resetClock();
   }
 }

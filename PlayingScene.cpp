@@ -51,11 +51,7 @@ void PlayingScene::onPhysics(float delta) {
       game.ball.launch();
     }
   } else {
-    game.ball.updateSpeedFromPot(
-      analogRead(game.pinBallSpeedPot),
-      game.ball.speedPotMinQ(),
-      game.ball.speedPotMaxQ()
-    );
+    game.updateBallSpeedControl();
     bool resyncBallPos = false;
 
     game.ball.onPhysics(delta);
@@ -67,8 +63,8 @@ void PlayingScene::onPhysics(float delta) {
       resyncBallPos = true;
     }
     ballPos = game.ball.getPosition();
-    if (ballPos.x + game.ball.r >= game.gfx.width()) {
-      game.ball.setX(game.gfx.width() - game.ball.r - 1);
+    if (ballPos.x + game.ball.r >= game.screenWidth()) {
+      game.ball.setX(game.screenWidth() - game.ball.r - 1);
       game.ball.dx = -game.ball.dx;
       resyncBallPos = true;
     }
@@ -91,18 +87,18 @@ void PlayingScene::onPhysics(float delta) {
     }
 
     ballPos = game.ball.getPosition();
-    if (ballPos.y + game.ball.r >= game.gfx.height()) {
+    if (ballPos.y + game.ball.r >= game.screenHeight()) {
       game.lives--;
       if (game.lives <= 0) {
-        game.gfx.fadeOutBacklight(game.GAMEOVER_FADE_OUT_MS);
+        game.fadeOutBacklight(game.GAMEOVER_FADE_OUT_MS);
         game.gameOverScore = game.score;
         game.sceneSwitcher.switchTo(game.gameOverScene);
-        game.gfx.fadeInBacklight(game.GAMEOVER_FADE_IN_MS);
+        game.fadeInBacklight(game.GAMEOVER_FADE_IN_MS);
         game.resetClock();
         return;
       } else {
-        game.hud.update(game.lives, game.score, game.gfx.width());
-        game.hud.markDirty(game.gfx.width());
+        game.hud.update(game.lives, game.score, game.screenWidth());
+        game.hud.markDirty(game.screenWidth());
         game.dirty.add(
           oldx - game.ball.r - 3,
           oldy - game.ball.r - 3,
@@ -149,8 +145,8 @@ void PlayingScene::onPhysics(float delta) {
             game.brickClear(c, r);
             game.spawnBrickFlash(x0, y0, x1, y1, game.rowColor[r], game.rowColorLight[r]);
             game.score += game.SCORE_PER_BRICK;
-            game.hud.update(game.lives, game.score, game.gfx.width());
-            game.hud.markDirty(game.gfx.width());
+            game.hud.update(game.lives, game.score, game.screenWidth());
+            game.hud.markDirty(game.screenWidth());
 
             if (!game.bricksRemaining()) {
               game.resetBricks();

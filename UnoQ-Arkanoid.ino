@@ -1,20 +1,30 @@
-#include "SGF.h"
+// Define SGF_HW_PRESET here or pass it via -DSGF_HW_PRESET=...
+// Examples:
+// #define SGF_HW_PRESET SGF_HW_PRESET_UNOQ_ILI9341_320X240
+// #define SGF_HW_PRESET SGF_HW_PRESET_ESP32_ST7789_240X240
+
+#include "vendor/sgf-hardware-presets/SGFHardwarePresets.h"
 #include "ArkanoidGame.h"
 
-#define TFT_CS 10
-#define TFT_DC 9
-#define TFT_RST 8
-#define TFT_LED D6
+#if SGF_HW_PRESET == SGF_HW_PRESET_UNOQ_ILI9341_320X240
+static constexpr uint8_t ARKANOID_BALL_SPEED_POT_PIN = A5;
+#elif SGF_HW_PRESET == SGF_HW_PRESET_ESP32_ST7789_240X240
+static constexpr uint8_t ARKANOID_BALL_SPEED_POT_PIN = 0xFF;
+#else
+#error "Unsupported SGF_HW_PRESET for Arkanoid ball speed control"
+#endif
 
-#define PIN_LEFT 2
-#define PIN_RIGHT 3
-#define PIN_FIRE D4
-#define PIN_BALL_SPEED_POT A5
-
-FastILI9341 gfx(TFT_CS, TFT_DC, TFT_RST, TFT_LED);
-ArkanoidGame arkanoid(gfx, PIN_LEFT, PIN_RIGHT, PIN_FIRE, PIN_BALL_SPEED_POT);
+auto hardware = SGFHardwareProfile::makeRuntime();
+ArkanoidGame arkanoid(
+  hardware.renderTarget(),
+  hardware.screen(),
+  hardware.profile,
+  ARKANOID_BALL_SPEED_POT_PIN);
 
 void setup() {
+  hardware.display.begin(hardware.profile.display.spiHz);
+  hardware.display.setRotation(hardware.profile.display.rotation);
+  hardware.display.setBacklight(0);
   arkanoid.setup();
 }
 

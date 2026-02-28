@@ -1,6 +1,5 @@
 #include "Hud.h"
 #include "SGF/Color565.h"
-#include "SGF/FastILI9341.h"
 #include <stdio.h>
 
 Hud::Hud(DirtyRects& dirtyRef) : dirty(dirtyRef) {
