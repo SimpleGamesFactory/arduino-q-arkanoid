@@ -3,7 +3,7 @@
 // #define SGF_HW_PRESET SGF_HW_PRESET_UNOQ_ILI9341_320X240
 // #define SGF_HW_PRESET SGF_HW_PRESET_ESP32_ST7789_240X240
 
-#include "vendor/sgf-hardware-presets/SGFHardwarePresets.h"
+#include "SGFHardwarePresets.h"
 #include "ArkanoidGame.h"
 
 #if SGF_HW_PRESET == SGF_HW_PRESET_UNOQ_ILI9341_320X240
