@@ -11,10 +11,12 @@ TitleScene::TitleScene(ArkanoidGame& game) : game(game) {}
 void TitleScene::onEnter() {
   game.resetActions();
   game.setGameplaySpritesVisible(false);
+  game.audio.startTitleMusic();
   game.invalidateScreen();
 }
 
 void TitleScene::onExit() {
+  game.audio.stopTitleMusic();
   game.dirty.clear();
 }
 
