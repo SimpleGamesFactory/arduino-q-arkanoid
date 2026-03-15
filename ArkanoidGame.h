@@ -5,6 +5,7 @@
 #include "SGF/ActionBinding.h"
 #include "SGF/ActionState.h"
 #include "SGF/DebouncedInputPin.h"
+#include "ArkanoidAudio.h"
 #include "Ball.h"
 #include "GameOverScene.h"
 #include "PlayingScene.h"
@@ -32,7 +33,8 @@ public:
     IRenderTarget& renderTarget,
     IScreen& screen,
     const SGFHardware::HardwareProfile& hardwareProfile,
-    uint8_t ballSpeedPotPin
+    uint8_t ballSpeedPotPin,
+    uint8_t audioOutputPin
   );
 
   void setup();
@@ -87,6 +89,7 @@ private:
   uint8_t pinRight = 0;
   uint8_t pinFire = 0;
   uint8_t pinBallSpeedPot = 0;
+  ArkanoidAudio audio;
   DebouncedInputPin fireInput;
   ActionBinding actionBindings[1];
 

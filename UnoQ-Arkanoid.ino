@@ -8,10 +8,12 @@
 
 #if SGF_HW_PRESET == SGF_HW_PRESET_UNOQ_ILI9341_320X240
 static constexpr uint8_t ARKANOID_BALL_SPEED_POT_PIN = A5;
+static constexpr uint8_t ARKANOID_AUDIO_OUT_PIN = 0xFF;
 #elif SGF_HW_PRESET == SGF_HW_PRESET_ESP32_ST7789_240X240
 static constexpr uint8_t ARKANOID_BALL_SPEED_POT_PIN = 0xFF;
+static constexpr uint8_t ARKANOID_AUDIO_OUT_PIN = 25u;
 #else
-#error "Unsupported SGF_HW_PRESET for Arkanoid ball speed control"
+#error "Unsupported SGF_HW_PRESET for Arkanoid hardware config"
 #endif
 
 auto hardware = SGFHardwareProfile::makeRuntime();
@@ -19,7 +21,8 @@ ArkanoidGame arkanoid(
   hardware.renderTarget(),
   hardware.screen(),
   hardware.profile,
-  ARKANOID_BALL_SPEED_POT_PIN);
+  ARKANOID_BALL_SPEED_POT_PIN,
+  ARKANOID_AUDIO_OUT_PIN);
 
 void setup() {
   hardware.display.setBacklight(0);

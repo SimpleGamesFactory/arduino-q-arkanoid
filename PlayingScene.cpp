@@ -71,12 +71,14 @@ void PlayingScene::onPhysics(float delta) {
         ballPos.x <= paddlePos.x + paddleSize.x) {
       game.ball.setPosition(ballPos.x, paddlePos.y - game.ball.r - 1);
       game.ball.bounceFromPaddleHit(ballPos.x - paddlePos.x, paddleSize.x);
+      game.audio.playPaddleHit();
       resyncBallPos = true;
     }
 
     ballPos = game.ball.getPosition();
     if (ballPos.y + game.ball.r >= game.screenHeight()) {
       game.lives--;
+      game.audio.playBallOut();
       if (game.lives <= 0) {
         game.gameOverScore = game.score;
         game.transitionToGameOver();
@@ -129,6 +131,7 @@ void PlayingScene::onPhysics(float delta) {
 
             game.brickClear(c, r);
             game.spawnBrickFlash(x0, y0, x1, y1, game.rowColor[r], game.rowColorLight[r]);
+            game.audio.playBlockHit();
             game.score += game.SCORE_PER_BRICK;
             game.hud.update(game.lives, game.score, game.screenWidth());
             game.hud.markDirty(game.screenWidth());

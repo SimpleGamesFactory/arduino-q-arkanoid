@@ -8,13 +8,15 @@ ArkanoidGame::ArkanoidGame(
   IRenderTarget& renderTargetRef,
   IScreen& screenRef,
   const SGFHardware::HardwareProfile& hardwareProfileIn,
-  uint8_t ballSpeedPotPin
+  uint8_t ballSpeedPotPin,
+  uint8_t audioOutputPin
 )
   : Game(ARKANOID_FRAME_DEFAULT_STEP_US, ARKANOID_FRAME_MAX_STEP_US),
     renderTarget(renderTargetRef),
     screen(screenRef),
     hardwareProfile(hardwareProfileIn),
     pinBallSpeedPot(ballSpeedPotPin),
+    audio(audioOutputPin),
     fireInput(),
     actionBindings{{fireInput, fireAction}},
     brickFlashAnim(brickFlashSlots,
@@ -246,6 +248,7 @@ void ArkanoidGame::onSetup() {
   pinMode(pinRight, INPUT_PULLUP);
   pinMode(pinFire, INPUT_PULLUP);
   configureActions(actionBindings, 1);
+  audio.setup();
   screen.setBacklight(0);
 
   rowColor[0] = Color565::rgb(255, 0, 0);
