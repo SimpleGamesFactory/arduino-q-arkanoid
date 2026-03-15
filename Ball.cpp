@@ -1,59 +1,164 @@
 #include "Ball.h"
 
-void ball_sync_fixed_from_int(BallState *b) {
-  if (!b) return;
-  b->fx = (float)b->x;
-  b->fy = (float)b->y;
+#include <stdlib.h>
+
+#include "Paddle.h"
+#include "SGF/Color565.h"
+
+Ball::Ball(int radius, int speedSlow, int speedFast, int posFpOne)
+  : r(radius), speedSlow_(speedSlow), speedFast_(speedFast), posFpOne_(posFpOne) {
+  setSize(spriteSize(), spriteSize());
+  rebuildSprite();
 }
 
-void ball_set_velocity(BallState *b, int dx, int dy) {
-  if (!b) return;
-  b->dx = dx;
-  b->dy = dy;
+void Ball::syncFixedFromInt() {
+  Position pos = getPosition();
+  fx = static_cast<float>(pos.x);
+  fy = static_cast<float>(pos.y);
 }
 
-void ball_attach_to_paddle(BallState *b, int paddleX, int paddleW, int paddleY) {
-  if (!b) return;
-  b->x = paddleX + paddleW / 2;
-  b->y = paddleY - b->r - 1;
-  ball_sync_fixed_from_int(b);
+void Ball::setVelocity(int newDx, int newDy) {
+  dx = newDx;
+  dy = newDy;
 }
 
-void ball_reset_on_paddle(BallState *b, int paddleX, int paddleW, int paddleY, int launchDx, int launchDy) {
-  if (!b) return;
-  b->attached = true;
-  ball_set_velocity(b, launchDx, launchDy);
-  ball_attach_to_paddle(b, paddleX, paddleW, paddleY);
+void Ball::resetSpeedControl() {
+  speedScaleQ = defaultSpeedScaleQ();
+  speedPotFiltQ = -1;
 }
 
-void ball_launch(BallState *b, int launchDx, int launchDy) {
-  if (!b) return;
-  b->attached = false;
-  ball_set_velocity(b, launchDx, launchDy);
+void Ball::attachToPaddle(const Paddle& paddle) {
+  Paddle::Position paddlePos = paddle.getPosition();
+  Vector2i paddleSize = paddle.getSize();
+  setPosition(paddlePos.x + paddleSize.x / 2, paddlePos.y - r - 1);
+  syncFixedFromInt();
 }
 
-void ball_update_speed_from_pot(BallState *b, int raw, int32_t minQ, int32_t maxQ) {
-  if (!b) return;
+void Ball::resetOnPaddle(const Paddle& paddle) {
+  attached = true;
+  setVelocity(defaultLaunchDx(), defaultLaunchDy());
+  attachToPaddle(paddle);
+}
 
-  int32_t rawQ = (int32_t)raw << 4;
-  if (b->speedPotFiltQ < 0) {
-    b->speedPotFiltQ = rawQ;
+void Ball::launch() {
+  attached = false;
+  setVelocity(defaultLaunchDx(), defaultLaunchDy());
+}
+
+void Ball::updateSpeedFromPot(int raw, int32_t minQ, int32_t maxQ) {
+  int32_t rawQ = static_cast<int32_t>(raw) << 4;
+  if (speedPotFiltQ < 0) {
+    speedPotFiltQ = rawQ;
   } else {
-    b->speedPotFiltQ += (rawQ - b->speedPotFiltQ) >> 3;
+    speedPotFiltQ += (rawQ - speedPotFiltQ) >> 3;
   }
 
-  int32_t rawSmooth = b->speedPotFiltQ >> 4;
+  int32_t rawSmooth = speedPotFiltQ >> 4;
   int32_t rangeQ = maxQ - minQ;
-  b->speedScaleQ = minQ + (rangeQ * rawSmooth) / 1023;
+  speedScaleQ = minQ + (rangeQ * rawSmooth) / 1023;
 }
 
-void ball_step_scaled(BallState *b, float dtSec, uint32_t baseStepUs, int posFpOne, int speedFast) {
-  if (!b) return;
+void Ball::onPhysics(float delta) {
+  float speedPxPerStep = static_cast<float>(speedScaleQ) / static_cast<float>(posFpOne_);
+  float stepScale =
+    (speedPxPerStep / static_cast<float>(speedFast_)) * (delta * (1000000.0f / static_cast<float>(baseStepUs)));
+  fx += static_cast<float>(dx) * stepScale;
+  fy += static_cast<float>(dy) * stepScale;
+  setPosition(static_cast<int>(fx + 0.5f), static_cast<int>(fy + 0.5f));
+}
 
-  float speedPxPerStep = (float)b->speedScaleQ / (float)posFpOne;
-  float stepScale = (speedPxPerStep / (float)speedFast) * (dtSec * (1000000.0f / (float)baseStepUs));
-  b->fx += (float)b->dx * stepScale;
-  b->fy += (float)b->dy * stepScale;
-  b->x = (int)(b->fx + 0.5f);
-  b->y = (int)(b->fy + 0.5f);
+void Ball::bounceFromPaddleHit(int hitX, int paddleW) {
+  if (paddleW <= 0) {
+    return;
+  }
+
+  int clampedHit = hitX;
+  if (clampedHit < 0) {
+    clampedHit = 0;
+  } else if (clampedHit >= paddleW) {
+    clampedHit = paddleW - 1;
+  }
+
+  int zone = (clampedHit * PADDLE_BOUNCE_ZONES) / paddleW;
+  if (zone < 0) {
+    zone = 0;
+  } else if (zone >= PADDLE_BOUNCE_ZONES) {
+    zone = PADDLE_BOUNCE_ZONES - 1;
+  }
+
+  switch (zone) {
+    case 0:
+      setVelocity(-speedFast_, -speedSlow_);
+      break;
+    case 1:
+      setVelocity(-speedSlow_, -speedFast_);
+      break;
+    case 2:
+      setVelocity(-1, -speedFast_);
+      break;
+    case 3:
+      setVelocity(0, -speedFast_);
+      break;
+    case 4:
+      setVelocity(1, -speedFast_);
+      break;
+    case 5:
+      setVelocity(speedSlow_, -speedFast_);
+      break;
+    default:
+      setVelocity(speedFast_, -speedSlow_);
+      break;
+  }
+}
+
+void Ball::snapAngles() {
+  int sx = (dx >= 0) ? 1 : -1;
+  int sy = (dy >= 0) ? 1 : -1;
+  int ax = abs(dx);
+  int ay = abs(dy);
+  if (ax == ay) {
+    ax = speedSlow_;
+    ay = speedFast_;
+  } else if (ax > ay) {
+    ax = speedFast_;
+    ay = speedSlow_;
+  } else {
+    ax = speedSlow_;
+    ay = speedFast_;
+  }
+  dx = sx * ax;
+  dy = sy * ay;
+}
+
+int Ball::spriteSize() const {
+  return r * 2 + 1;
+}
+
+int Ball::defaultLaunchDx() const {
+  return speedSlow_;
+}
+
+int Ball::defaultLaunchDy() const {
+  return -speedFast_;
+}
+
+void Ball::rebuildSprite() {
+  const uint16_t ballColor = Color565::rgb(255, 255, 255);
+  int size = spriteSize();
+  setSize(size, size);
+  for (int py = 0; py < size; ++py) {
+    for (int px = 0; px < size; ++px) {
+      int ddx = px - r;
+      int ddy = py - r;
+      bool inside = (ddx * ddx + ddy * ddy) <= (r * r);
+      spritePixels[py * size + px] = inside ? ballColor : 0;
+    }
+  }
+}
+
+void Ball::configureBoundSprite(Renderer2D::SpriteHandle& sprite) {
+  Vector2i ballSize = getSize();
+  sprite.setBitmap(spritePixels, ballSize.x, ballSize.y, 0);
+  sprite.setScale(spriteScale);
+  sprite.setAnchor(Vector2f{0.5f, 0.5f});
 }

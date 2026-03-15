@@ -1,33 +1,78 @@
 #pragma once
 
-#include <stdbool.h>
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "SGF/SpriteCharacter.h"
 
-typedef struct {
-  int x;
-  int y;
-  int dx;
-  int dy;
-  int r;
-  bool attached;
-  float fx;
-  float fy;
-  int32_t speedScaleQ;
-  int32_t speedPotFiltQ;
-} BallState;
+class Paddle;
 
-void ball_sync_fixed_from_int(BallState *b);
-void ball_set_velocity(BallState *b, int dx, int dy);
-void ball_attach_to_paddle(BallState *b, int paddleX, int paddleW, int paddleY);
-void ball_reset_on_paddle(BallState *b, int paddleX, int paddleW, int paddleY, int launchDx, int launchDy);
-void ball_launch(BallState *b, int launchDx, int launchDy);
-void ball_update_speed_from_pot(BallState *b, int raw, int32_t minQ, int32_t maxQ);
-void ball_step_scaled(BallState *b, float dtSec, uint32_t baseStepUs, int posFpOne, int speedFast);
+class Ball : public SpriteCharacter {
+public:
+  using Position = Vector2i;
 
-#ifdef __cplusplus
-}
-#endif
+  static constexpr uint32_t DEFAULT_BASE_STEP_US = 10000;
+  static constexpr int DEFAULT_RADIUS = 6;
+  static constexpr int DEFAULT_SPEED_SLOW = 1;
+  static constexpr int DEFAULT_SPEED_FAST = 3;
+  static constexpr int DEFAULT_POS_FP_SHIFT = 8;
+  static constexpr int DEFAULT_POS_FP_ONE = 1 << DEFAULT_POS_FP_SHIFT;
+  static constexpr int MAX_R = 16;
+  static constexpr int MAX_SPRITE_SIZE = MAX_R * 2 + 1;
+  static constexpr int PADDLE_BOUNCE_ZONES = 7;
+
+  Ball() : Ball(DEFAULT_RADIUS, DEFAULT_SPEED_SLOW, DEFAULT_SPEED_FAST, DEFAULT_POS_FP_ONE) {}
+  Ball(int radius, int speedSlow, int speedFast, int posFpOne);
+
+  int dx = 0;
+  int dy = 0;
+  int r = 0;
+  bool attached = true;
+  float fx = 0.0f;
+  float fy = 0.0f;
+  int32_t speedScaleQ = 0;
+  int32_t speedPotFiltQ = -1;
+  uint32_t baseStepUs = DEFAULT_BASE_STEP_US;
+  SpriteScale spriteScale = SpriteScale::Normal;
+
+  void syncFixedFromInt();
+  void setVelocity(int newDx, int newDy);
+  void resetSpeedControl();
+  void attachToPaddle(const Paddle& paddle);
+  void resetOnPaddle(const Paddle& paddle);
+  void launch();
+  void updateSpeedFromPot(int raw, int32_t minQ, int32_t maxQ);
+  void onPhysics(float delta);
+  void bounceFromPaddleHit(int hitX, int paddleW);
+  void snapAngles();
+  void rebuildSprite();
+
+  int speedSlow() const {
+    return speedSlow_;
+  }
+  int speedFast() const {
+    return speedFast_;
+  }
+  int posFpOne() const {
+    return posFpOne_;
+  }
+  int32_t defaultSpeedScaleQ() const {
+    return (static_cast<int32_t>(speedFast_) * static_cast<int32_t>(posFpOne_) * 5) / 6;
+  }
+  int32_t speedPotMinQ() const {
+    return posFpOne_ / 2;
+  }
+  int32_t speedPotMaxQ() const {
+    return posFpOne_ * 5;
+  }
+
+private:
+  const int speedSlow_;
+  const int speedFast_;
+  const int posFpOne_;
+  uint16_t spritePixels[MAX_SPRITE_SIZE * MAX_SPRITE_SIZE]{};
+
+  int defaultLaunchDx() const;
+  int defaultLaunchDy() const;
+  int spriteSize() const;
+  void configureBoundSprite(Renderer2D::SpriteHandle& sprite) override;
+};

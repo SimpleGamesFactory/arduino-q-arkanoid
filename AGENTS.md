@@ -1,13 +1,13 @@
 # AGENTS.md
 
-## Najważniejsze zasady współpracy (lokalne dla tego repo)
-
-- Zmieniaj tylko dokładnie to, o co prosi użytkownik.
-- Nie ruszaj istniejących zmian użytkownika (kod, teksty, układ) bez wyraźnej zgody.
-- Nie rób refaktoru / cleanupu / „przy okazji” zmian poza zakresem zadania.
-- Jeśli zmiana może dotknąć więcej niż 1 obszaru pliku, najpierw krótko opisz co dokładnie będzie zmienione.
-- Zachowuj styl i strukturę projektu; nie narzucaj własnej organizacji plików bez prośby.
-- Przy poprawkach UI/tekstów nie zmieniaj treści komunikatów bez potrzeby.
-- Preferuj małe, precyzyjne patche zamiast szerokich przepisań.
-- Jeśli coś jest niejasne: zapytaj zamiast zgadywać.
-
+## Local collaboration rules
+- Change only what the user asks for; do not touch unrelated user edits.
+- No side refactors/cleanups beyond the requested scope.
+- If a change spans multiple areas of a file, briefly state what will be altered before editing.
+- Keep the project’s style/structure; do not impose your own organization unasked.
+- Follow `CODING_STANDARDS.md` for any C++/Arduino code changes.
+- Core structure is described in `SGF/README.md`; consult it when touching shared components.
+- For UI/text tweaks, don’t alter wording unless necessary.
+- Prefer small, precise patches over sweeping rewrites.
+- Ask when something is unclear instead of guessing.
+- No false statements and no lies: if unsure, say so; verify compliance before stating it and double-check work instead of assuming.
