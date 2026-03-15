@@ -29,7 +29,7 @@ void Ball::resetSpeedControl() {
 
 void Ball::attachToPaddle(const Paddle& paddle) {
   Paddle::Position paddlePos = paddle.getPosition();
-  Vector2 paddleSize = paddle.getSize();
+  Vector2i paddleSize = paddle.getSize();
   setPosition(paddlePos.x + paddleSize.x / 2, paddlePos.y - r - 1);
   syncFixedFromInt();
 }
@@ -156,12 +156,9 @@ void Ball::rebuildSprite() {
   }
 }
 
-void Ball::configureBoundSprite(SpriteLayer::Sprite& sprite) {
-  Vector2 size = getSize();
-  sprite.w = size.x;
-  sprite.h = size.y;
-  sprite.pixels565 = spritePixels;
-  sprite.transparent = 0;
-  sprite.scale = spriteScale;
-  sprite.setAnchor(0.5f, 0.5f);
+void Ball::configureBoundSprite(Renderer2D::SpriteHandle& sprite) {
+  Vector2i ballSize = getSize();
+  sprite.setBitmap(spritePixels, ballSize.x, ballSize.y, 0);
+  sprite.setScale(spriteScale);
+  sprite.setAnchor(Vector2f{0.5f, 0.5f});
 }

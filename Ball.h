@@ -8,7 +8,7 @@ class Paddle;
 
 class Ball : public SpriteCharacter {
 public:
-  using Position = Vector2;
+  using Position = Vector2i;
 
   static constexpr uint32_t DEFAULT_BASE_STEP_US = 10000;
   static constexpr int DEFAULT_RADIUS = 6;
@@ -32,7 +32,7 @@ public:
   int32_t speedScaleQ = 0;
   int32_t speedPotFiltQ = -1;
   uint32_t baseStepUs = DEFAULT_BASE_STEP_US;
-  SpriteLayer::Scale spriteScale = SpriteLayer::Scale::Normal;
+  SpriteScale spriteScale = SpriteScale::Normal;
 
   void syncFixedFromInt();
   void setVelocity(int newDx, int newDy);
@@ -74,5 +74,5 @@ private:
   int defaultLaunchDx() const;
   int defaultLaunchDy() const;
   int spriteSize() const;
-  void configureBoundSprite(SpriteLayer::Sprite& sprite) override;
+  void configureBoundSprite(Renderer2D::SpriteHandle& sprite) override;
 };

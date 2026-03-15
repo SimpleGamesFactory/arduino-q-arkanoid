@@ -2,21 +2,25 @@
 
 #include <stdint.h>
 
+#include "SGF/ActionBinding.h"
+#include "SGF/ActionState.h"
+#include "SGF/DebouncedInputPin.h"
 #include "Ball.h"
 #include "GameOverScene.h"
 #include "PlayingScene.h"
-#include "SGF/Actions.h"
 #include "SGF/DirtyRects.h"
+#include "SGF/FontRenderer.h"
 #include "SGF/Game.h"
 #include "SGF/HardwareProfile.h"
 #include "SGF/IRenderTarget.h"
 #include "SGF/IScreen.h"
-#include "SGF/Scene.h"
 #include "Hud.h"
 #include "Paddle.h"
 #include "SGF/RectFlashAnim.h"
-#include "SGF/TileFlusher.h"
-#include "SGF/Sprites.h"
+#include "SGF/Renderer2D.h"
+#if defined(ENABLE_PROFILER) && ENABLE_PROFILER
+#include "SGF/SerialMonitor.h"
+#endif
 #include "TitleScene.h"
 
 static constexpr uint32_t ARKANOID_FRAME_DEFAULT_STEP_US = 10000u;
@@ -32,8 +36,8 @@ public:
   );
 
   void setup();
-  int screenWidth() const { return renderTarget.width(); }
-  int screenHeight() const { return renderTarget.height(); }
+  int screenWidth() const { return renderTarget.size().x; }
+  int screenHeight() const { return renderTarget.size().y; }
   void fillScreen(uint16_t color565) { screen.fillScreen565(color565); }
   void fillRect(int x0, int y0, int w, int h, uint16_t color565) {
     screen.fillRect565(x0, y0, w, h, color565);
@@ -83,6 +87,8 @@ private:
   uint8_t pinRight = 0;
   uint8_t pinFire = 0;
   uint8_t pinBallSpeedPot = 0;
+  DebouncedInputPin fireInput;
+  ActionBinding actionBindings[1];
 
   uint16_t regionBuf[MAX_RW * MAX_RH]{};
 
@@ -90,8 +96,7 @@ private:
   int lives = START_LIVES;
   uint32_t score = 0;
   uint32_t gameOverScore = 0;
-  DigitalAction fireAction;
-  PressReleaseAction fireConfirmAction;
+  ActionState fireAction;
 
   Ball ball{};
 
@@ -102,9 +107,10 @@ private:
   RectFlashAnimSlot brickFlashSlots[BRICK_FLASH_SLOTS]{};
   RectFlashAnim brickFlashAnim;
   Hud hud;
-  TileFlusher flusher;
-  SpriteLayer sprites;
-  SceneSwitcher sceneSwitcher;
+#if defined(ENABLE_PROFILER) && ENABLE_PROFILER
+  SerialMonitor serialMonitor;
+#endif
+  Renderer2D renderer;
   TitleScene titleScene;
   PlayingScene playingScene;
   GameOverScene gameOverScene;
@@ -133,11 +139,12 @@ private:
   void resetGame();
   void invalidateScreen();
   void updateBallSpeedControl();
+  void setGameplaySpritesVisible(bool visible);
   void transitionFromTitleToPlaying();
   void transitionToGameOver();
   void transitionFromGameOverToPlaying();
 
   uint16_t bgAt(int x, int y) const;
-  void renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* buf);
+  void renderBackgroundToBuffer(int x0, int y0, int w, int h, uint16_t* buf);
   void flushDirty();
 };

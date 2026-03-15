@@ -1,17 +1,8 @@
 #include <Arduino.h>
-
 #include "ArkanoidGame.h"
 #include "SGF/Color565.h"
 #include "SGF/DirtyRects.h"
 #include "SGF/Font5x7.h"
-
-namespace {
-
-void fillRectOnScreen(void* ctx, int x, int y, int w, int h, uint16_t color565) {
-  static_cast<IScreen*>(ctx)->fillRect565(x, y, w, h, color565);
-}
-
-}  // namespace
 
 ArkanoidGame::ArkanoidGame(
   IRenderTarget& renderTargetRef,
@@ -24,29 +15,50 @@ ArkanoidGame::ArkanoidGame(
     screen(screenRef),
     hardwareProfile(hardwareProfileIn),
     pinBallSpeedPot(ballSpeedPotPin),
+    fireInput(),
+    actionBindings{{fireInput, fireAction}},
     brickFlashAnim(brickFlashSlots,
                     BRICK_FLASH_SLOTS,
                     Color565::rgb(255, 255, 255),
                     Color565::rgb(255, 245, 180)),
     hud(dirty),
-    flusher(dirty, MAX_RW, MAX_RH),
-    sprites(),
-    sceneSwitcher(),
+#if defined(ENABLE_PROFILER) && ENABLE_PROFILER
+    serialMonitor(),
+#endif
+    renderer(renderTargetRef, dirty, MAX_RW, MAX_RH),
     titleScene(*this),
     playingScene(*this),
     gameOverScene(*this) {
   pinLeft = hardwareProfile.input.left;
   pinRight = hardwareProfile.input.right;
   pinFire = hardwareProfile.input.fire;
+  fireInput.attach(pinFire, true);
 
-  paddle.setBounds(0, renderTarget.width() - paddle.getSize().x);
-  paddle.resetCentered(renderTarget.width());
+  paddle.setBounds(0, screenWidth() - paddle.getSize().x);
+  paddle.resetCentered(screenWidth());
 
   ball.resetSpeedControl();
   ball.resetOnPaddle(paddle);
 
-  paddle.bindSprite(sprites.sprite(0));
-  ball.bindSprite(sprites.sprite(1));
+  renderer.setBackgroundRenderer([this](int x0,
+                                        int y0,
+                                        int w,
+                                        int h,
+                                        int32_t worldX0,
+                                        int32_t worldY0,
+                                        uint16_t* buf) {
+    (void)worldX0;
+    (void)worldY0;
+    renderBackgroundToBuffer(x0, y0, w, h, buf);
+  });
+  renderer.setRegionBuffer(regionBuf);
+  attachRenderer(renderer);
+#if defined(ENABLE_PROFILER) && ENABLE_PROFILER
+  attachSerialMonitor(serialMonitor);
+  serialMonitor.attachProfiler(renderer.profiler());
+#endif
+  paddle.bindSprite(renderer.sprite(0));
+  ball.bindSprite(renderer.sprite(1));
 }
 
 void ArkanoidGame::rebuildBrickShades() {
@@ -101,19 +113,16 @@ bool ArkanoidGame::bricksRemaining() const {
 }
 
 void ArkanoidGame::resetGame() {
-  paddle.setBounds(0, renderTarget.width() - paddle.getSize().x);
+  paddle.setBounds(0, screenWidth() - paddle.getSize().x);
   paddle.velocityX = 0.0f;
-  paddle.resetCentered(renderTarget.width());
-  resetClock();
+  paddle.resetCentered(screenWidth());
   lives = START_LIVES;
   score = 0;
   gameOverScore = 0;
-  fireAction.reset(digitalRead(pinFire) == LOW);
-  fireConfirmAction.reset();
 
   ball.resetSpeedControl();
 
-  hud.update(lives, score, renderTarget.width());
+  hud.update(lives, score, screenWidth());
   resetBricks();
   clearBrickFlashes();
   ball.resetOnPaddle(paddle);
@@ -136,29 +145,32 @@ void ArkanoidGame::updateBallSpeedControl() {
   );
 }
 
+void ArkanoidGame::setGameplaySpritesVisible(bool visible) {
+  renderer.sprite(0).setActive(visible);
+  renderer.sprite(1).setActive(visible);
+}
+
 void ArkanoidGame::transitionFromTitleToPlaying() {
   fadeOutBacklight(TITLE_EXIT_FADE_OUT_MS);
   resetGame();
+  switchScene(playingScene);
   flushDirty();
-  sceneSwitcher.switchTo(playingScene);
   fadeInBacklight(TITLE_EXIT_FADE_IN_MS);
-  resetClock();
 }
 
 void ArkanoidGame::transitionToGameOver() {
   fadeOutBacklight(GAMEOVER_FADE_OUT_MS);
-  sceneSwitcher.switchTo(gameOverScene);
+  switchScene(gameOverScene);
+  flushDirty();
   fadeInBacklight(GAMEOVER_FADE_IN_MS);
-  resetClock();
 }
 
 void ArkanoidGame::transitionFromGameOverToPlaying() {
   fadeOutBacklight(GAMEOVER_EXIT_FADE_OUT_MS);
   resetGame();
+  switchScene(playingScene);
   flushDirty();
-  sceneSwitcher.switchTo(playingScene);
   fadeInBacklight(GAMEOVER_EXIT_FADE_IN_MS);
-  resetClock();
 }
 
 uint16_t ArkanoidGame::bgAt(int x, int y) const {
@@ -166,7 +178,7 @@ uint16_t ArkanoidGame::bgAt(int x, int y) const {
   const uint16_t paddleShadow = Color565::rgb(28, 32, 38);
 
   if (y < Hud::HEIGHT) {
-    uint16_t hudColor = hud.pixelColor(x, y, renderTarget.width());
+    uint16_t hudColor = hud.pixelColor(x, y, screenWidth());
     return hudColor ? hudColor : black;
   }
 
@@ -200,7 +212,17 @@ uint16_t ArkanoidGame::bgAt(int x, int y) const {
   return black;
 }
 
-void ArkanoidGame::renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* buf) {
+void ArkanoidGame::renderBackgroundToBuffer(int x0, int y0, int w, int h, uint16_t* buf) {
+  const Scene* scene = currentScene();
+  if (scene == &titleScene) {
+    titleScene.renderToBuffer(x0, y0, w, h, buf);
+    return;
+  }
+  if (scene == &gameOverScene) {
+    gameOverScene.renderToBuffer(x0, y0, w, h, buf);
+    return;
+  }
+
   for (int yy = 0; yy < h; yy++) {
     int y = y0 + yy;
     for (int xx = 0; xx < w; xx++) {
@@ -209,14 +231,10 @@ void ArkanoidGame::renderRegionToBuffer(int x0, int y0, int w, int h, uint16_t* 
       buf[yy * w + xx] = c;
     }
   }
-
-  sprites.renderRegion(x0, y0, w, h, buf);
 }
 
 void ArkanoidGame::flushDirty() {
-  flusher.flush(renderTarget, regionBuf, [this](int x0, int y0, int w, int h, uint16_t* buf) {
-    renderRegionToBuffer(x0, y0, w, h, buf);
-  });
+  renderer.render();
 }
 
 void ArkanoidGame::setup() {
@@ -227,8 +245,7 @@ void ArkanoidGame::onSetup() {
   pinMode(pinLeft, INPUT_PULLUP);
   pinMode(pinRight, INPUT_PULLUP);
   pinMode(pinFire, INPUT_PULLUP);
-  fireAction.reset(digitalRead(pinFire) == LOW);
-  fireConfirmAction.reset();
+  configureActions(actionBindings, 1);
   screen.setBacklight(0);
 
   rowColor[0] = Color565::rgb(255, 0, 0);
@@ -241,23 +258,20 @@ void ArkanoidGame::onSetup() {
   rowColor[7] = Color565::rgb(255, 0, 255);
   rebuildBrickShades();
 
-  sceneSwitcher.setInitial(titleScene);
+  switchScene(titleScene);
   fadeInBacklight(START_FADE_IN_MS);
-  resetClock();
 }
 
 void ArkanoidGame::onPhysics(float delta) {
-  fireAction.update(digitalRead(pinFire) == LOW);
-  sceneSwitcher.onPhysics(delta);
+  (void)delta;
 }
 
 void ArkanoidGame::onProcess(float delta) {
-  sceneSwitcher.onProcess(delta);
+  (void)delta;
 }
 
 void ArkanoidGame::drawCenteredText(int y, const char* text, int scale, uint16_t color565) {
-  Font5x7::drawCenteredText(
-    renderTarget.width(), y, text, scale, color565, &screen, fillRectOnScreen);
+  FontRenderer::drawTextCentered(FONT_5X7, screen, screenWidth() / 2, y, text, scale, color565);
 }
 
 void ArkanoidGame::fadeBacklightTo(uint8_t targetLevel, uint16_t durationMs) {

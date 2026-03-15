@@ -7,6 +7,12 @@
 
 PlayingScene::PlayingScene(ArkanoidGame& game) : game(game) {}
 
+void PlayingScene::onEnter() {
+  game.resetActions();
+  game.setGameplaySpritesVisible(true);
+  game.invalidateScreen();
+}
+
 void PlayingScene::onPhysics(float delta) {
   int dir = 0;
   if (digitalRead(game.pinLeft) == LOW) {
@@ -16,29 +22,11 @@ void PlayingScene::onPhysics(float delta) {
     dir++;
   }
   game.paddle.velocityX = static_cast<float>(dir) * game.paddle.speedPxPerSec;
-  auto& paddleSprite = game.sprites.sprite(0);
-  auto& ballSprite = game.sprites.sprite(1);
   Paddle::Position paddlePos = game.paddle.getPosition();
-  Vector2 paddleSize = game.paddle.getSize();
-  Paddle::MoveResult paddleMove = game.paddle.onPhysics(delta);
+  Vector2i paddleSize = game.paddle.getSize();
+  game.paddle.onPhysics(delta);
   paddlePos = game.paddle.getPosition();
   paddleSize = game.paddle.getSize();
-  if (paddleMove.moved) {
-    int px0 = 0;
-    int py0 = 0;
-    int px1 = 0;
-    int py1 = 0;
-    SpriteLayer::Sprite oldPaddleSprite = paddleSprite;
-    oldPaddleSprite.active = true;
-    oldPaddleSprite.setPosition(paddleMove.oldPosition.x, paddleMove.oldPosition.y);
-    SpriteLayer::spriteBoundsPadded(oldPaddleSprite, 2, &px0, &py0, &px1, &py1);
-    game.dirty.add(px0, py0, px1, py1);
-    SpriteLayer::Sprite newPaddleSprite = paddleSprite;
-    newPaddleSprite.active = true;
-    newPaddleSprite.setPosition(paddleMove.newPosition.x, paddleMove.newPosition.y);
-    SpriteLayer::spriteBoundsPadded(newPaddleSprite, 2, &px0, &py0, &px1, &py1);
-    game.dirty.add(px0, py0, px1, py1);
-  }
   game.markBrickFlashesDirty();
   Ball::Position ballPos = game.ball.getPosition();
   int oldx = ballPos.x;
@@ -47,7 +35,7 @@ void PlayingScene::onPhysics(float delta) {
   bool fell = false;
   if (game.ball.attached) {
     game.ball.attachToPaddle(game.paddle);
-    if (game.fireAction.justPressed()) {
+    if (game.fireAction.isJustPressed()) {
       game.ball.launch();
     }
   } else {
@@ -58,19 +46,19 @@ void PlayingScene::onPhysics(float delta) {
 
     ballPos = game.ball.getPosition();
     if (ballPos.x - game.ball.r < 0) {
-      game.ball.setX(game.ball.r);
+      game.ball.setPosition(game.ball.r, ballPos.y);
       game.ball.dx = -game.ball.dx;
       resyncBallPos = true;
     }
     ballPos = game.ball.getPosition();
     if (ballPos.x + game.ball.r >= game.screenWidth()) {
-      game.ball.setX(game.screenWidth() - game.ball.r - 1);
+      game.ball.setPosition(game.screenWidth() - game.ball.r - 1, ballPos.y);
       game.ball.dx = -game.ball.dx;
       resyncBallPos = true;
     }
     ballPos = game.ball.getPosition();
     if (ballPos.y - game.ball.r < Hud::HEIGHT) {
-      game.ball.setY(Hud::HEIGHT + game.ball.r);
+      game.ball.setPosition(ballPos.x, Hud::HEIGHT + game.ball.r);
       game.ball.dy = -game.ball.dy;
       resyncBallPos = true;
     }
@@ -81,7 +69,7 @@ void PlayingScene::onPhysics(float delta) {
         ballPos.y + game.ball.r <= paddlePos.y + paddleSize.y &&
         ballPos.x >= paddlePos.x &&
         ballPos.x <= paddlePos.x + paddleSize.x) {
-      game.ball.setY(paddlePos.y - game.ball.r - 1);
+      game.ball.setPosition(ballPos.x, paddlePos.y - game.ball.r - 1);
       game.ball.bounceFromPaddleHit(ballPos.x - paddlePos.x, paddleSize.x);
       resyncBallPos = true;
     }
@@ -126,7 +114,7 @@ void PlayingScene::onPhysics(float delta) {
           int x1 = x0 + game.BRICK_W - 1;
           int y1 = y0 + game.BRICK_H - 1;
           ballPos = game.ball.getPosition();
-          if (::circleRectHit(ballPos.x, ballPos.y, game.ball.r, x0, y0, x1, y1)) {
+          if (::circleRectHit(ballPos, game.ball.r, Vector2i{x0, y0}, Vector2i{x1, y1})) {
             hit = true;
 
             bool prevOutY =
@@ -163,32 +151,9 @@ void PlayingScene::onPhysics(float delta) {
       game.ball.syncFixedFromInt();
     }
   }
-
-  ballPos = game.ball.getPosition();
-  bool ballMoved = (ballPos.x != oldx) || (ballPos.y != oldy);
-  int bx0 = 0;
-  int by0 = 0;
-  int bx1 = 0;
-  int by1 = 0;
-
-  if (!fell && ballMoved) {
-    SpriteLayer::Sprite oldBallSprite = ballSprite;
-    oldBallSprite.active = true;
-    oldBallSprite.setPosition(oldx, oldy);
-    SpriteLayer::spriteBoundsPadded(oldBallSprite, 3, &bx0, &by0, &bx1, &by1);
-    game.dirty.add(bx0, by0, bx1, by1);
-  }
-  if (ballMoved || fell) {
-    SpriteLayer::Sprite newBallSprite = ballSprite;
-    newBallSprite.active = true;
-    newBallSprite.setPosition(ballPos.x, ballPos.y);
-    SpriteLayer::spriteBoundsPadded(newBallSprite, 3, &bx0, &by0, &bx1, &by1);
-    game.dirty.add(bx0, by0, bx1, by1);
-  }
 }
 
 void PlayingScene::onProcess(float delta) {
   uint32_t frameDtUs = (uint32_t)(delta * 1000000.0f + 0.5f);
-  game.flushDirty();
   game.advanceBrickFlashes(frameDtUs);
 }

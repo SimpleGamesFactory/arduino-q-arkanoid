@@ -4,6 +4,7 @@
 
 #include "SGF/DirtyRects.h"
 #include "SGF/Font5x7.h"
+#include "SGF/FontRenderer.h"
 
 class Hud {
 public:

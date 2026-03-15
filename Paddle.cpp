@@ -2,7 +2,7 @@
 #include "SGF/Color565.h"
 
 Paddle::Paddle() {
-  Character::setPosition(0, DEFAULT_Y);
+  SpriteCharacter::setPosition(0, DEFAULT_Y);
   xf = 0.0f;
   SpriteCharacter::setSize(DEFAULT_W, DEFAULT_H);
   rebuildSprite();
@@ -10,7 +10,8 @@ Paddle::Paddle() {
 
 void Paddle::setX(int newX) {
   xf = static_cast<float>(newX);
-  SpriteCharacter::setX(newX);
+  Position pos = getPosition();
+  SpriteCharacter::setPosition(newX, pos.y);
 }
 
 void Paddle::setPosition(int newX, int newY) {
@@ -29,8 +30,8 @@ void Paddle::setSize(int w, int h) {
 }
 
 void Paddle::resetCentered(int screenW) {
-  Vector2 size = getSize();
-  setX((screenW - size.x) / 2);
+  Vector2i paddleSize = getSize();
+  setX((screenW - paddleSize.x) / 2);
 }
 
 void Paddle::setBounds(int newMinX, int newMaxX) {
@@ -66,7 +67,7 @@ Paddle::MoveResult Paddle::onPhysics(float delta) {
   }
 
   int newX = static_cast<int>(xf + 0.5f);
-  Character::setPosition(newX, positionY());
+  SpriteCharacter::setPosition(newX, pos.y);
   result.newPosition = getPosition();
   result.moved = (result.newPosition.x != result.oldPosition.x) ||
                  (result.newPosition.y != result.oldPosition.y);
@@ -77,14 +78,11 @@ void Paddle::rebuildSprite() {
   buildSprite565(spritePixels);
 }
 
-void Paddle::configureBoundSprite(SpriteLayer::Sprite& sprite) {
-  Vector2 size = getSize();
-  sprite.w = size.x;
-  sprite.h = size.y;
-  sprite.pixels565 = spritePixels;
-  sprite.transparent = 0;
-  sprite.scale = spriteScale;
-  sprite.setAnchor(0.0f, 0.0f);
+void Paddle::configureBoundSprite(Renderer2D::SpriteHandle& sprite) {
+  Vector2i paddleSize = getSize();
+  sprite.setBitmap(spritePixels, paddleSize.x, paddleSize.y, 0);
+  sprite.setScale(spriteScale);
+  sprite.setAnchor(Vector2f{0.0f, 0.0f});
 }
 
 void Paddle::buildSprite565(uint16_t* pixels) const {
@@ -96,23 +94,24 @@ void Paddle::buildSprite565(uint16_t* pixels) const {
   const uint16_t light = Color565::rgb(232, 236, 244);
   const uint16_t dark = Color565::rgb(130, 136, 146);
   const uint16_t midShadow = Color565::rgb(86, 92, 102);
-  Vector2 size = getSize();
+  Vector2i paddleSize = getSize();
 
-  for (int py = 0; py < size.y; ++py) {
-    for (int px = 0; px < size.x; ++px) {
-      bool corner = ((py == 0 || py == size.y - 1) && (px == 0 || px == size.x - 1));
+  for (int py = 0; py < paddleSize.y; ++py) {
+    for (int px = 0; px < paddleSize.x; ++px) {
+      bool corner =
+        ((py == 0 || py == paddleSize.y - 1) && (px == 0 || px == paddleSize.x - 1));
       if (corner) {
-        pixels[py * size.x + px] = 0;
+        pixels[py * paddleSize.x + px] = 0;
         continue;
       }
       if (py == 0 || px == 0) {
-        pixels[py * size.x + px] = light;
-      } else if (py == size.y - 1 || px == size.x - 1) {
-        pixels[py * size.x + px] = dark;
-      } else if (py == size.y - 2 || px == size.x - 2) {
-        pixels[py * size.x + px] = midShadow;
+        pixels[py * paddleSize.x + px] = light;
+      } else if (py == paddleSize.y - 1 || px == paddleSize.x - 1) {
+        pixels[py * paddleSize.x + px] = dark;
+      } else if (py == paddleSize.y - 2 || px == paddleSize.x - 2) {
+        pixels[py * paddleSize.x + px] = midShadow;
       } else {
-        pixels[py * size.x + px] = face;
+        pixels[py * paddleSize.x + px] = face;
       }
     }
   }
@@ -120,14 +119,14 @@ void Paddle::buildSprite565(uint16_t* pixels) const {
 
 bool Paddle::roundedBodyAt(int px, int py) const {
   Position pos = getPosition();
-  Vector2 size = getSize();
-  if (py < pos.y || py >= pos.y + size.y || px < pos.x || px >= pos.x + size.x) {
+  Vector2i paddleSize = getSize();
+  if (py < pos.y || py >= pos.y + paddleSize.y || px < pos.x || px >= pos.x + paddleSize.x) {
     return false;
   }
 
   int lx = px - pos.x;
   int ly = py - pos.y;
-  if ((ly == 0 || ly == size.y - 1) && (lx == 0 || lx == size.x - 1)) {
+  if ((ly == 0 || ly == paddleSize.y - 1) && (lx == 0 || lx == paddleSize.x - 1)) {
     return false;
   }
   return true;
@@ -135,16 +134,16 @@ bool Paddle::roundedBodyAt(int px, int py) const {
 
 bool Paddle::shadowAt(int px, int py) const {
   Position pos = getPosition();
-  Vector2 size = getSize();
+  Vector2i paddleSize = getSize();
   const int sx = pos.x + 1;
   const int sy = pos.y + 1;
-  if (py < sy || py >= sy + size.y || px < sx || px >= sx + size.x) {
+  if (py < sy || py >= sy + paddleSize.y || px < sx || px >= sx + paddleSize.x) {
     return false;
   }
 
   int lx = px - sx;
   int ly = py - sy;
-  if ((ly == 0 || ly == size.y - 1) && (lx == 0 || lx == size.x - 1)) {
+  if ((ly == 0 || ly == paddleSize.y - 1) && (lx == 0 || lx == paddleSize.x - 1)) {
     return false;
   }
 

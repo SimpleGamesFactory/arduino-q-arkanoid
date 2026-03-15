@@ -6,11 +6,11 @@
 
 class Paddle : public SpriteCharacter {
 public:
-  using Position = Vector2;
+  using Position = Vector2i;
 
   struct MoveResult {
-    Vector2 oldPosition{};
-    Vector2 newPosition{};
+    Vector2i oldPosition{};
+    Vector2i newPosition{};
     bool moved = false;
   };
 
@@ -24,7 +24,7 @@ public:
   int maxX = 320 - DEFAULT_W;
   float velocityX = 0.0f;
   float speedPxPerSec = DEFAULT_SPEED_PX_PER_SEC;
-  SpriteLayer::Scale spriteScale = SpriteLayer::Scale::Normal;
+  SpriteScale spriteScale = SpriteScale::Normal;
 
   Paddle();
 
@@ -43,5 +43,5 @@ private:
   uint16_t spritePixels[DEFAULT_W * DEFAULT_H]{};
 
   void buildSprite565(uint16_t* pixels) const;
-  void configureBoundSprite(SpriteLayer::Sprite& sprite) override;
+  void configureBoundSprite(Renderer2D::SpriteHandle& sprite) override;
 };
