@@ -11,9 +11,16 @@ constexpr float NOTE_G1 = 49.00f;
 constexpr float NOTE_A1 = 55.00f;
 constexpr float NOTE_KICK = 46.0f;
 constexpr float NOTE_SNARE = 220.0f;
+constexpr float NOTE_E2 = 82.41f;
+constexpr float NOTE_G2 = 98.00f;
+constexpr float NOTE_A2 = 110.00f;
+constexpr float NOTE_AS2 = 116.54f;
+constexpr float NOTE_B2 = 123.47f;
 constexpr int TITLE_BASS_VOICE = 0;
 constexpr int TITLE_KICK_VOICE = 1;
 constexpr int TITLE_SNARE_VOICE = 2;
+constexpr int TITLE_ORGAN1_VOICE = 3;
+constexpr int TITLE_ORGAN2_VOICE = 4;
 
 constexpr SGFAudio::PitchPoint kKickPitchEnv[] = {
   {0u, 1200},
@@ -55,6 +62,42 @@ constexpr SGFAudio::Instrument kSnareInstrument{
   0.0f,
   1450.0f,
   210u
+};
+constexpr SGFAudio::Lfo kOrgan1Lfo{
+  true,
+  SGFAudio::Waveform::Sine,
+  5.2f,
+  9.0f
+};
+constexpr SGFAudio::Adsr kOrgan1Env{10u, 60u, 210u, 140u};
+constexpr SGFAudio::Instrument kOrgan1Instrument{
+  SGFAudio::Waveform::Square,
+  kOrgan1Env,
+  kOrgan1Lfo,
+  nullptr,
+  0u,
+  AUDIO_FILTER_LP,
+  980.0f,
+  0.0f,
+  58u
+};
+constexpr SGFAudio::Lfo kOrgan2Lfo{
+  true,
+  SGFAudio::Waveform::Sine,
+  4.8f,
+  7.0f
+};
+constexpr SGFAudio::Adsr kOrgan2Env{10u, 70u, 205u, 150u};
+constexpr SGFAudio::Instrument kOrgan2Instrument{
+  SGFAudio::Waveform::Saw,
+  kOrgan2Env,
+  kOrgan2Lfo,
+  nullptr,
+  0u,
+  AUDIO_FILTER_LP,
+  900.0f,
+  0.0f,
+  54u
 };
 
 constexpr SGFAudio::PatternStep kBassSteps[] = {
@@ -117,6 +160,93 @@ constexpr SGFAudio::Pattern kSnarePattern{
   sizeof(kSnareSteps) / sizeof(kSnareSteps[0]),
   TITLE_UNIT_MS,
   true
+};
+
+constexpr SGFAudio::PatternStep kOrganSilenceSteps[] = {
+  {0.0f, 32u, 0u},
+};
+constexpr SGFAudio::Pattern kOrganSilencePattern{
+  kOrganSilenceSteps,
+  sizeof(kOrganSilenceSteps) / sizeof(kOrganSilenceSteps[0]),
+  TITLE_UNIT_MS,
+  false
+};
+
+constexpr SGFAudio::PatternStep kOrgan1PhraseSteps[] = {
+  {NOTE_B2, 4u, 180u},
+  {0.0f, 1u, 0u},
+  {NOTE_G2, 1u, 172u},
+  {0.0f, 2u, 0u},
+  {0.0f, 8u, 0u},
+  {NOTE_A2, 4u, 184u},
+  {0.0f, 12u, 0u},
+};
+constexpr SGFAudio::Pattern kOrgan1PhrasePattern{
+  kOrgan1PhraseSteps,
+  sizeof(kOrgan1PhraseSteps) / sizeof(kOrgan1PhraseSteps[0]),
+  TITLE_UNIT_MS,
+  false
+};
+
+constexpr SGFAudio::PatternStep kOrgan2PhraseSteps[] = {
+  {NOTE_E2, 4u, 166u},
+  {0.0f, 1u, 0u},
+  {NOTE_E2, 1u, 160u},
+  {0.0f, 2u, 0u},
+  {0.0f, 8u, 0u},
+  {NOTE_E2, 4u, 168u},
+  {0.0f, 1u, 0u},
+  {NOTE_E2, 1u, 160u},
+  {0.0f, 2u, 0u},
+  {0.0f, 2u, 0u},
+  {NOTE_G2, 1u, 168u},
+  {NOTE_E2, 1u, 160u},
+  {NOTE_G2, 2u, 172u},
+  {NOTE_AS2, 2u, 176u},
+};
+constexpr SGFAudio::Pattern kOrgan2PhrasePattern{
+  kOrgan2PhraseSteps,
+  sizeof(kOrgan2PhraseSteps) / sizeof(kOrgan2PhraseSteps[0]),
+  TITLE_UNIT_MS,
+  false
+};
+
+const SGFAudio::SongClip kBassClips[] = {
+  {&kBassPattern, 1u},
+};
+const SGFAudio::SongClip kKickClips[] = {
+  {&kKickPattern, 1u},
+};
+const SGFAudio::SongClip kSnareClips[] = {
+  {&kSnarePattern, 1u},
+};
+const SGFAudio::SongClip kOrgan1Clips[] = {
+  {&kOrganSilencePattern, 2u},
+  {&kOrgan1PhrasePattern, 2u},
+};
+const SGFAudio::SongClip kOrgan2Clips[] = {
+  {&kOrganSilencePattern, 2u},
+  {&kOrgan2PhrasePattern, 2u},
+};
+
+const SGFAudio::SongLane kTitleSongLanes[] = {
+  {TITLE_BASS_VOICE, SGFAudio::makeProgramRef(kBassInstrument), kBassClips,
+   sizeof(kBassClips) / sizeof(kBassClips[0])},
+  {TITLE_KICK_VOICE, SGFAudio::makeProgramRef(kKickInstrument), kKickClips,
+   sizeof(kKickClips) / sizeof(kKickClips[0])},
+  {TITLE_SNARE_VOICE, SGFAudio::makeProgramRef(kSnareInstrument), kSnareClips,
+   sizeof(kSnareClips) / sizeof(kSnareClips[0])},
+  {TITLE_ORGAN1_VOICE, SGFAudio::makeProgramRef(kOrgan1Instrument), kOrgan1Clips,
+   sizeof(kOrgan1Clips) / sizeof(kOrgan1Clips[0])},
+  {TITLE_ORGAN2_VOICE, SGFAudio::makeProgramRef(kOrgan2Instrument), kOrgan2Clips,
+   sizeof(kOrgan2Clips) / sizeof(kOrgan2Clips[0])},
+};
+
+const SGFAudio::Song kTitleSong{
+  kTitleSongLanes,
+  sizeof(kTitleSongLanes) / sizeof(kTitleSongLanes[0]),
+  90u,
+  4u
 };
 
 constexpr SGFAudio::Adsr kBlockHitEnv{0u, 18u, 140u, 24u};
@@ -193,24 +323,12 @@ constexpr SGFAudio::Sfx kBallOutSfx{
 
 ArkanoidAudio::ArkanoidAudio(uint8_t outputPin)
   : outputPin(outputPin),
-    synth(SAMPLE_RATE),
-    titleBassTrack(),
-    titleKickTrack(),
-    titleSnareTrack(),
-    audioOutput(*this, outputPin)
+    music(SAMPLE_RATE),
+    audioOutput(music, outputPin)
 {}
 
 void ArkanoidAudio::setup() {
-  synth.setMasterVolume(190u);
-  titleBassTrack.bind(
-    synth, TITLE_BASS_VOICE, SGFAudio::makeProgramRef(kBassInstrument), kBassPattern);
-  titleKickTrack.bind(
-    synth, TITLE_KICK_VOICE, SGFAudio::makeProgramRef(kKickInstrument), kKickPattern);
-  titleSnareTrack.bind(
-    synth, TITLE_SNARE_VOICE, SGFAudio::makeProgramRef(kSnareInstrument), kSnarePattern);
-  titleBassTrack.reset();
-  titleKickTrack.reset();
-  titleSnareTrack.reset();
+  music.setVolume(190u);
   if (enabled()) {
     audioOutput.begin();
   }
@@ -220,19 +338,11 @@ void ArkanoidAudio::startTitleMusic() {
   if (!enabled()) {
     return;
   }
-  stopVoices(TITLE_BASS_VOICE, 3);
-  titleBassTrack.reset();
-  titleKickTrack.reset();
-  titleSnareTrack.reset();
-  titleMusicEnabled = true;
+  music.play(kTitleSong);
 }
 
 void ArkanoidAudio::stopTitleMusic() {
-  titleMusicEnabled = false;
-  stopVoices(TITLE_BASS_VOICE, 3);
-  titleBassTrack.reset();
-  titleKickTrack.reset();
-  titleSnareTrack.reset();
+  music.stop();
 }
 
 void ArkanoidAudio::playBlockHit() {
@@ -247,22 +357,6 @@ void ArkanoidAudio::playBallOut() {
   playSfx(kBallOutSfx, 293.66f, 255u);
 }
 
-uint32_t ArkanoidAudio::sampleRate() const {
-  return SAMPLE_RATE;
-}
-
-int16_t ArkanoidAudio::renderSample() {
-  if (!enabled()) {
-    return 0;
-  }
-  if (titleMusicEnabled) {
-    titleBassTrack.tick();
-    titleKickTrack.tick();
-    titleSnareTrack.tick();
-  }
-  return synth.renderSample();
-}
-
 void ArkanoidAudio::playSfx(const SGFAudio::Sfx& sfx, float baseHz, uint8_t velocity) {
   if (!enabled()) {
     return;
@@ -270,19 +364,13 @@ void ArkanoidAudio::playSfx(const SGFAudio::Sfx& sfx, float baseHz, uint8_t velo
   int voice = nextSfxVoice;
   for (int i = 0; i < SFX_VOICE_COUNT; ++i) {
     int candidate = SFX_VOICE_START + ((nextSfxVoice - SFX_VOICE_START + i) % SFX_VOICE_COUNT);
-    if (!synth.voiceActive(candidate)) {
+    if (!music.synth().voiceActive(candidate)) {
       voice = candidate;
       break;
     }
   }
-  synth.triggerSfx(voice, sfx, baseHz, velocity);
+  music.synth().triggerSfx(voice, sfx, baseHz, velocity);
   nextSfxVoice = SFX_VOICE_START + ((voice - SFX_VOICE_START + 1) % SFX_VOICE_COUNT);
-}
-
-void ArkanoidAudio::stopVoices(int firstVoice, int voiceCount) {
-  for (int i = 0; i < voiceCount; ++i) {
-    synth.noteOff(firstVoice + i);
-  }
 }
 
 bool ArkanoidAudio::enabled() const {
@@ -302,14 +390,6 @@ void ArkanoidAudio::playBlockHit() {}
 void ArkanoidAudio::playPaddleHit() {}
 
 void ArkanoidAudio::playBallOut() {}
-
-uint32_t ArkanoidAudio::sampleRate() const {
-  return SAMPLE_RATE;
-}
-
-int16_t ArkanoidAudio::renderSample() {
-  return 0;
-}
 
 bool ArkanoidAudio::enabled() const {
   return false;
